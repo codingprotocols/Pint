@@ -7,9 +7,11 @@
 
 import Foundation
 
-/// Service that wraps all Homebrew CLI interactions.
+/// Service that wraps Homebrew CLI interactions and the Homebrew JSON API.
 @MainActor
 final class BrewService {
+
+    private let apiClient = BrewAPIClient.shared
 
     /// List all installed formulae and casks.
     func listInstalled() async throws -> [BrewPackage] {
@@ -134,82 +136,15 @@ final class BrewService {
         return packages.sorted { $0.name < $1.name }
     }
 
-    /// Search for packages by name.
+    /// Search for packages by name using the Homebrew JSON API.
     func search(_ query: String) async throws -> [BrewPackage] {
-        guard !query.isEmpty else { return [] }
-        let output = try await ShellExecutor.run(["search", query])
-
-        var packages: [BrewPackage] = []
-        var currentType: PackageType = .formula
-
-        for line in output.components(separatedBy: "\n") {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.isEmpty { continue }
-
-            if trimmed.contains("Formulae") {
-                currentType = .formula
-                continue
-            } else if trimmed.contains("Casks") {
-                currentType = .cask
-                continue
-            } else if trimmed.hasPrefix("==>") {
-                continue
-            }
-
-            for word in trimmed.components(separatedBy: .whitespaces) where !word.isEmpty {
-                packages.append(BrewPackage(
-                    name: word,
-                    type: currentType
-                ))
-            }
-        }
-
-        return packages
+        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { return [] }
+        return try await apiClient.search(query)
     }
 
-    /// Get detailed info for a specific package.
+    /// Get detailed info for a specific package using the Homebrew JSON API.
     func getInfo(_ name: String, type: PackageType = .formula) async throws -> BrewPackage {
-        var args = ["info", "--json=v2", name]
-        if type == .cask {
-            args = ["info", "--json=v2", "--cask", name]
-        }
-        let output = try await ShellExecutor.run(args)
-        guard let data = output.data(using: .utf8) else {
-            return BrewPackage(name: name, type: type)
-        }
-
-        do {
-            if let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                if type == .formula,
-                   let formulae = root["formulae"] as? [[String: Any]],
-                   let formula = formulae.first {
-                    let desc = formula["desc"] as? String ?? ""
-                    let homepage = formula["homepage"] as? String ?? ""
-                    var version = ""
-                    if let versions = formula["versions"] as? [String: Any] {
-                        version = versions["stable"] as? String ?? ""
-                    }
-                    return BrewPackage(
-                        name: name, version: version,
-                        description: desc, homepage: homepage,
-                        type: .formula
-                    )
-                } else if type == .cask,
-                          let casks = root["casks"] as? [[String: Any]],
-                          let cask = casks.first {
-                    let desc = cask["desc"] as? String ?? ""
-                    let homepage = cask["homepage"] as? String ?? ""
-                    let version = cask["version"] as? String ?? ""
-                    return BrewPackage(
-                        name: name, version: version,
-                        description: desc, homepage: homepage,
-                        type: .cask
-                    )
-                }
-            }
-        } catch { }
-
-        return BrewPackage(name: name, type: type)
+        return try await apiClient.getInfo(name, type: type)
     }
 
     /// Install a package with streaming output.

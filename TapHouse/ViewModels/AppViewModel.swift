@@ -44,6 +44,7 @@ final class AppViewModel {
     var doctorOutput: String = ""
     var brewVersion: String = ""
 
+    var brewAvailable: Bool = true
     var isLoadingInstalled: Bool = false
     var isLoadingOutdated: Bool = false
     var isSearching: Bool = false
@@ -91,6 +92,12 @@ final class AppViewModel {
 
     func loadAll() {
         Task {
+            guard ShellExecutor.isBrewInstalled() else {
+                brewAvailable = false
+                showError("Homebrew is not installed. Please install Homebrew from https://brew.sh and relaunch TapHouse.")
+                return
+            }
+            brewAvailable = true
             await loadInstalled()
             await loadOutdated()
             await loadBrewVersion()
@@ -205,26 +212,34 @@ final class AppViewModel {
     }
 
     private func runOperation(operation: BrewOperation, action: @escaping (@escaping @Sendable (String) -> Void) async throws -> Void) {
+        let capturedSelf = self
+        
         activeOperation = operation
         showingTerminal = true
 
         Task {
             do {
-                try await action { [weak self] text in
+                try await action { text in
                     Task { @MainActor in
-                        self?.activeOperation?.output += text
+                        capturedSelf.activeOperation?.output += text
                     }
                 }
-                activeOperation?.isComplete = true
-                activeOperation?.isSuccess = true
+                await MainActor.run {
+                    capturedSelf.activeOperation?.isComplete = true
+                    capturedSelf.activeOperation?.isSuccess = true
+                }
             } catch {
-                activeOperation?.isComplete = true
-                activeOperation?.isSuccess = false
-                activeOperation?.output += "\n❌ Error: \(error.localizedDescription)"
+                await MainActor.run {
+                    capturedSelf.activeOperation?.isComplete = true
+                    capturedSelf.activeOperation?.isSuccess = false
+                    capturedSelf.activeOperation?.output += "\n❌ Error: \(error.localizedDescription)"
+                }
             }
 
-            if let op = activeOperation {
-                operationHistory.insert(op, at: 0)
+            await MainActor.run {
+                if let op = capturedSelf.activeOperation {
+                    capturedSelf.operationHistory.insert(op, at: 0)
+                }
             }
 
             // Refresh data after operation
@@ -238,3 +253,4 @@ final class AppViewModel {
         showError = true
     }
 }
+

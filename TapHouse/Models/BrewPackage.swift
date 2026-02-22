@@ -14,7 +14,7 @@ enum PackageType: String, Codable, CaseIterable {
 }
 
 /// Core model representing a Homebrew package.
-struct BrewPackage: Identifiable, Hashable {
+struct BrewPackage: Identifiable, Hashable, Sendable {
     let id: String
     let name: String
     var version: String
@@ -26,7 +26,7 @@ struct BrewPackage: Identifiable, Hashable {
     var latestVersion: String?
     var installedOnRequest: Bool
 
-    init(
+    nonisolated init(
         name: String,
         version: String = "",
         description: String = "",
