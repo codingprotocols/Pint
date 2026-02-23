@@ -57,6 +57,14 @@ final class AppViewModel {
     /// The currently running Task — stored so it can be cancelled.
     private var runningTask: Task<Void, Never>?
 
+    /// Background periodic update check task.
+    private var backgroundCheckTask: Task<Void, Never>?
+
+    /// Whether there are packages available for upgrade.
+    var hasUpdates: Bool {
+        !outdatedPackages.isEmpty
+    }
+
     // Error handling
     var errorMessage: String? = nil
     var showError: Bool = false
@@ -103,6 +111,21 @@ final class AppViewModel {
             await loadInstalled()
             await loadOutdated()
             await loadBrewVersion()
+            startBackgroundUpdateChecking()
+        }
+    }
+
+    /// Periodically check for outdated packages in the background.
+    func startBackgroundUpdateChecking() {
+        backgroundCheckTask?.cancel()
+        backgroundCheckTask = Task {
+            while !Task.isCancelled {
+                let interval = UserDefaults.standard.integer(forKey: AppSettingsKeys.updateCheckInterval)
+                let seconds = interval > 0 ? interval : 3600
+                try? await Task.sleep(for: .seconds(seconds))
+                guard !Task.isCancelled else { break }
+                await loadOutdated()
+            }
         }
     }
 

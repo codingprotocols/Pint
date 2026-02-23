@@ -49,11 +49,20 @@ struct SidebarView: View {
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 6) {
                 Divider()
-                if !viewModel.brewVersion.isEmpty {
-                    Text(viewModel.brewVersion)
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
+                HStack {
+                    if !viewModel.brewVersion.isEmpty {
+                        Text(viewModel.brewVersion)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                    }
+                    Spacer()
+                    SettingsLink {
+                        Image(systemName: "gear")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Settings")
                 }
             }
             .padding(.horizontal)
