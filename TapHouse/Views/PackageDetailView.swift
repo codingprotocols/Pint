@@ -11,6 +11,8 @@ struct PackageDetailView: View {
     let package: BrewPackage
     @Environment(AppViewModel.self) private var viewModel
     @State private var detailedPackage: BrewPackage?
+    @State private var releaseNote: ReleaseNote?
+    @State private var isLoadingRelease = false
 
     var body: some View {
         ScrollView {
@@ -84,12 +86,107 @@ struct PackageDetailView: View {
                         .buttonStyle(.borderedProminent)
                     }
                 }
+
+                // MARK: - Release Notes Section
+                if isLoadingRelease {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Release Notes", systemImage: "doc.text")
+                            .font(.headline)
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Loading release notes…")
+                                .foregroundStyle(.secondary)
+                                .font(.caption)
+                        }
+                    }
+                } else if let release = releaseNote {
+                    ReleaseNoteSection(release: release)
+                }
             }
             .padding(24)
         }
         .task {
             let service = BrewService()
             detailedPackage = try? await service.getInfo(package.name, type: package.type)
+
+            // Fetch release notes from GitHub
+            let homepage = detailedPackage?.homepage ?? package.homepage
+            if !homepage.isEmpty {
+                isLoadingRelease = true
+                releaseNote = await BrewAPIClient.shared.fetchReleaseNotes(homepage: homepage)
+                isLoadingRelease = false
+            }
         }
+    }
+}
+
+// MARK: - Reusable Release Notes Section
+
+struct ReleaseNoteSection: View {
+    let release: ReleaseNote
+    @State private var isExpanded = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Header
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Label("Release Notes", systemImage: "doc.text")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+
+                    Spacer()
+
+                    Text(release.tagName)
+                        .font(.system(.caption, design: .monospaced))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(.blue.opacity(0.1))
+                        .clipShape(Capsule())
+
+                    if !release.publishedAt.isEmpty {
+                        Text(release.publishedAt)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                // Release title
+                if !release.title.isEmpty && release.title != release.tagName {
+                    Text(release.title)
+                        .font(.subheadline.weight(.semibold))
+                }
+
+                // Release body
+                Text(release.body)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                // Link to GitHub
+                if let url = URL(string: release.htmlURL), !release.htmlURL.isEmpty {
+                    Link(destination: url) {
+                        Label("View on GitHub", systemImage: "arrow.up.right.square")
+                            .font(.caption)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(.background.secondary)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }

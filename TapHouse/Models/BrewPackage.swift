@@ -70,3 +70,12 @@ struct BrewOperation: Identifiable {
     var isSuccess: Bool = true
     var startTime: Date = Date()
 }
+
+/// Release notes fetched from GitHub Releases API.
+struct ReleaseNote: Sendable {
+    let tagName: String
+    let title: String
+    let body: String
+    let publishedAt: String
+    let htmlURL: String
+}

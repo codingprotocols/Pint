@@ -171,4 +171,90 @@ actor BrewAPIClient {
             type: .cask
         )
     }
+
+    // MARK: - GitHub Release Notes
+
+    /// Fetch the latest release notes from GitHub for a package.
+    /// Returns `nil` if the homepage is not a GitHub repo or the API call fails.
+    func fetchReleaseNotes(homepage: String) async -> ReleaseNote? {
+        guard let (owner, repo) = parseGitHubRepo(from: homepage) else { return nil }
+
+        let urlString = "https://api.github.com/repos/\(owner)/\(repo)/releases/latest"
+        guard let url = URL(string: urlString) else { return nil }
+
+        do {
+            var request = URLRequest(url: url)
+            request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+            request.timeoutInterval = 10
+
+            let (data, response) = try await session.data(for: request)
+
+            // Check for rate limit or not-found
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+                return nil
+            }
+
+            guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                return nil
+            }
+
+            let tagName = dict["tag_name"] as? String ?? ""
+            let title = dict["name"] as? String ?? tagName
+            let body = dict["body"] as? String ?? ""
+            let publishedAt = dict["published_at"] as? String ?? ""
+            let htmlURL = dict["html_url"] as? String ?? ""
+
+            // Skip if there's no meaningful content
+            guard !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                return nil
+            }
+
+            return ReleaseNote(
+                tagName: tagName,
+                title: title,
+                body: body,
+                publishedAt: formatDate(publishedAt),
+                htmlURL: htmlURL
+            )
+        } catch {
+            return nil
+        }
+    }
+
+    /// Extract owner/repo from a GitHub URL like "https://github.com/owner/repo" or "https://github.com/owner/repo/..."
+    private func parseGitHubRepo(from urlString: String) -> (owner: String, repo: String)? {
+        guard let url = URL(string: urlString),
+              let host = url.host,
+              host.contains("github.com") else {
+            return nil
+        }
+
+        let pathComponents = url.pathComponents.filter { $0 != "/" }
+        guard pathComponents.count >= 2 else { return nil }
+
+        let owner = pathComponents[0]
+        let repo = pathComponents[1]
+        return (owner, repo)
+    }
+
+    /// Format an ISO 8601 date string into a human-readable form.
+    private func formatDate(_ isoString: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: isoString) {
+            let display = DateFormatter()
+            display.dateStyle = .medium
+            display.timeStyle = .none
+            return display.string(from: date)
+        }
+        // Try without fractional seconds
+        formatter.formatOptions = [.withInternetDateTime]
+        if let date = formatter.date(from: isoString) {
+            let display = DateFormatter()
+            display.dateStyle = .medium
+            display.timeStyle = .none
+            return display.string(from: date)
+        }
+        return isoString
+    }
 }
