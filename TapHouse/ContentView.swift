@@ -17,29 +17,30 @@ struct ContentView: View {
         NavigationSplitView {
             SidebarView()
         } detail: {
-            Group {
-                switch viewModel.selectedNav {
-                case .dashboard:
-                    DashboardView()
-                case .installed:
-                    InstalledView()
-                case .upgrades:
-                    UpgradesView()
-                case .search:
-                    SearchView()
-                case .doctor:
-                    DoctorView()
+            VStack(spacing: 0) {
+                Group {
+                    switch viewModel.selectedNav {
+                    case .dashboard:
+                        DashboardView()
+                    case .installed:
+                        InstalledView()
+                    case .upgrades:
+                        UpgradesView()
+                    case .search:
+                        SearchView()
+                    case .doctor:
+                        DoctorView()
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                // Inline operation banner at the bottom
+                OperationBannerView()
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .navigationSplitViewStyle(.balanced)
         .onAppear {
             viewModel.loadAll()
-        }
-        .sheet(isPresented: $vm.showingTerminal) {
-            TerminalOutputView()
-                .environment(viewModel)
         }
         .alert("Error", isPresented: $vm.showError) {
             Button("OK") { }

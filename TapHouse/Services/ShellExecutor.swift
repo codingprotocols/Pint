@@ -133,6 +133,7 @@ actor ShellExecutor {
     }
 
     /// Run a brew command with real-time streaming output via a callback.
+    /// Supports cancellation — if the calling Task is cancelled, the process is terminated.
     static func runStreaming(
         _ arguments: [String],
         onOutput: @escaping @Sendable (String) -> Void
@@ -168,20 +169,33 @@ actor ShellExecutor {
 
         try process.run()
 
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            process.terminationHandler = { _ in
-                outputPipe.fileHandleForReading.readabilityHandler = nil
-                errorPipe.fileHandleForReading.readabilityHandler = nil
-                continuation.resume()
+        // Bridge Swift Task cancellation to Process termination.
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                process.terminationHandler = { proc in
+                    outputPipe.fileHandleForReading.readabilityHandler = nil
+                    errorPipe.fileHandleForReading.readabilityHandler = nil
+                    // SIGTERM (exit 15) or interruption signals mean cancellation.
+                    if proc.terminationStatus == 15 || proc.terminationReason == .uncaughtSignal {
+                        continuation.resume(throwing: ShellError.cancelled)
+                    } else {
+                        continuation.resume()
+                    }
+                }
+            }
+        } onCancel: {
+            if process.isRunning {
+                process.terminate()
             }
         }
     }
 }
 
 /// Errors from shell execution.
-enum ShellError: LocalizedError {
+enum ShellError: LocalizedError, Equatable {
     case commandFailed(command: String, exitCode: Int32, stderr: String)
     case brewNotFound
+    case cancelled
 
     var errorDescription: String? {
         switch self {
@@ -189,6 +203,9 @@ enum ShellError: LocalizedError {
             return "Command '\(command)' failed (exit \(exitCode)): \(stderr)"
         case .brewNotFound:
             return "Homebrew not found. Please install Homebrew first."
+        case .cancelled:
+            return "Operation was cancelled."
         }
     }
 }
+

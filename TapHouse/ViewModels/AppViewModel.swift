@@ -52,8 +52,10 @@ final class AppViewModel {
 
     // Operation tracking
     var activeOperation: BrewOperation? = nil
-    var showingTerminal: Bool = false
     var operationHistory: [BrewOperation] = []
+
+    /// The currently running Task — stored so it can be cancelled.
+    private var runningTask: Task<Void, Never>?
 
     // Error handling
     var errorMessage: String? = nil
@@ -204,6 +206,17 @@ final class AppViewModel {
         }
     }
 
+    /// Cancel the currently running operation.
+    func cancelOperation() {
+        runningTask?.cancel()
+        runningTask = nil
+    }
+
+    /// Dismiss the completed/cancelled operation banner.
+    func dismissOperation() {
+        activeOperation = nil
+    }
+
     // MARK: - Private
 
     private func runOperation(command: String, package: BrewPackage, action: @escaping (@escaping @Sendable (String) -> Void) async throws -> Void) {
@@ -213,11 +226,10 @@ final class AppViewModel {
 
     private func runOperation(operation: BrewOperation, action: @escaping (@escaping @Sendable (String) -> Void) async throws -> Void) {
         let capturedSelf = self
-        
-        activeOperation = operation
-        showingTerminal = true
 
-        Task {
+        activeOperation = operation
+
+        runningTask = Task {
             do {
                 try await action { text in
                     Task { @MainActor in
@@ -227,6 +239,18 @@ final class AppViewModel {
                 await MainActor.run {
                     capturedSelf.activeOperation?.isComplete = true
                     capturedSelf.activeOperation?.isSuccess = true
+                }
+            } catch is CancellationError {
+                await MainActor.run {
+                    capturedSelf.activeOperation?.isComplete = true
+                    capturedSelf.activeOperation?.isSuccess = false
+                    capturedSelf.activeOperation?.output += "\n⚠️ Cancelled by user."
+                }
+            } catch let error as ShellError where error == .cancelled {
+                await MainActor.run {
+                    capturedSelf.activeOperation?.isComplete = true
+                    capturedSelf.activeOperation?.isSuccess = false
+                    capturedSelf.activeOperation?.output += "\n⚠️ Cancelled by user."
                 }
             } catch {
                 await MainActor.run {
@@ -240,6 +264,7 @@ final class AppViewModel {
                 if let op = capturedSelf.activeOperation {
                     capturedSelf.operationHistory.insert(op, at: 0)
                 }
+                capturedSelf.runningTask = nil
             }
 
             // Refresh data after operation
