@@ -14,10 +14,10 @@ struct DashboardView: View {
         ScrollView {
             VStack(spacing: 24) {
                 // Header
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .bottom) {
+                    VStack(alignment: .leading, spacing: 6) {
                         Text("Dashboard")
-                            .font(.largeTitle.weight(.bold))
+                            .font(.system(.largeTitle, design: .rounded, weight: .bold))
                         Text("Your Homebrew at a glance")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -27,154 +27,215 @@ struct DashboardView: View {
                         Button {
                             viewModel.updateBrew()
                         } label: {
-                            Label("Update Homebrew", systemImage: "arrow.clockwise")
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.clockwise")
+                                Text("Update")
+                            }
+                            .font(.callout.weight(.medium))
                         }
                         .buttonStyle(.bordered)
+                        .tint(.secondary)
 
                         if !viewModel.outdatedPackages.isEmpty {
                             Button {
                                 viewModel.upgradeAll()
                             } label: {
-                                Label("Upgrade All", systemImage: "arrow.up.circle.fill")
+                                HStack(spacing: 6) {
+                                    Image(systemName: "arrow.up.circle.fill")
+                                    Text("Upgrade All")
+                                }
+                                .font(.callout.weight(.semibold))
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(.orange)
                         }
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 24)
 
                 // Stats Cards
                 LazyVGrid(columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible()),
-                    GridItem(.flexible()),
-                    GridItem(.flexible())
+                    GridItem(.flexible(), spacing: 16),
+                    GridItem(.flexible(), spacing: 16),
+                    GridItem(.flexible(), spacing: 16),
+                    GridItem(.flexible(), spacing: 16)
                 ], spacing: 16) {
-                    StatCard(
-                        title: "Total Packages",
+                    GradientStatCard(
+                        title: "Total",
                         value: "\(viewModel.installedPackages.count)",
                         icon: "shippingbox.fill",
-                        color: .blue
+                        gradient: [Color(red: 0.2, green: 0.5, blue: 1.0), Color(red: 0.4, green: 0.7, blue: 1.0)]
                     )
-                    StatCard(
+                    GradientStatCard(
                         title: "Formulae",
                         value: "\(viewModel.totalFormulae)",
                         icon: "terminal.fill",
-                        color: .green
+                        gradient: [Color(red: 0.2, green: 0.8, blue: 0.5), Color(red: 0.4, green: 0.9, blue: 0.7)]
                     )
-                    StatCard(
+                    GradientStatCard(
                         title: "Casks",
                         value: "\(viewModel.totalCasks)",
                         icon: "macwindow",
-                        color: .purple
+                        gradient: [Color(red: 0.6, green: 0.3, blue: 0.9), Color(red: 0.8, green: 0.5, blue: 1.0)]
                     )
-                    StatCard(
-                        title: "Upgrades Available",
+                    GradientStatCard(
+                        title: "Upgrades",
                         value: "\(viewModel.outdatedPackages.count)",
                         icon: "arrow.up.circle.fill",
-                        color: viewModel.outdatedPackages.isEmpty ? .gray : .orange
+                        gradient: viewModel.outdatedPackages.isEmpty
+                            ? [.gray.opacity(0.5), .gray.opacity(0.3)]
+                            : [Color(red: 1.0, green: 0.5, blue: 0.1), Color(red: 1.0, green: 0.7, blue: 0.2)]
                     )
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 24)
 
                 // Outdated Packages Section
                 if !viewModel.outdatedPackages.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack(spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.orange)
+                                .font(.title3)
+                                .foregroundStyle(
+                                    LinearGradient(colors: [.orange, .red], startPoint: .top, endPoint: .bottom)
+                                )
                             Text("Packages Ready to Upgrade")
                                 .font(.headline)
                             Spacer()
+                            Text("\(viewModel.outdatedPackages.count)")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Capsule().fill(.orange.gradient))
                         }
 
                         ForEach(viewModel.outdatedPackages) { pkg in
                             OutdatedPackageRow(package: pkg)
                         }
                     }
-                    .padding()
-                    .background(.background.secondary)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .padding(.horizontal)
+                    .padding(20)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(.ultraThinMaterial)
+                            .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+                    )
+                    .padding(.horizontal, 24)
                 }
 
                 // Recent Operations
                 if !viewModel.operationHistory.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack(spacing: 8) {
                             Image(systemName: "clock.fill")
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.blue.gradient)
                             Text("Recent Operations")
                                 .font(.headline)
                             Spacer()
                         }
 
                         ForEach(viewModel.operationHistory.prefix(5)) { op in
-                            HStack {
-                                Image(systemName: op.isSuccess ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                    .foregroundStyle(op.isSuccess ? .green : .red)
+                            HStack(spacing: 10) {
+                                ZStack {
+                                    Circle()
+                                        .fill(op.isSuccess
+                                            ? LinearGradient(colors: [.green, .mint], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                            : LinearGradient(colors: [.red, .pink], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                        )
+                                        .frame(width: 24, height: 24)
+                                    Image(systemName: op.isSuccess ? "checkmark" : "xmark")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundStyle(.white)
+                                }
+
                                 Text("brew \(op.command)")
-                                    .font(.system(.body, design: .monospaced))
+                                    .font(.system(.callout, design: .monospaced))
                                 Spacer()
                                 Text(op.packageName)
+                                    .font(.caption)
                                     .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(Capsule().fill(.quaternary))
                             }
-                            .padding(.vertical, 4)
+                            .padding(.vertical, 2)
                         }
                     }
-                    .padding()
-                    .background(.background.secondary)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .padding(.horizontal)
+                    .padding(20)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(.ultraThinMaterial)
+                            .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+                    )
+                    .padding(.horizontal, 24)
                 }
 
                 // Loading indicator
                 if viewModel.isLoadingInstalled || viewModel.isLoadingOutdated {
-                    HStack(spacing: 8) {
+                    HStack(spacing: 10) {
                         ProgressView()
                             .controlSize(.small)
                         Text("Loading packages…")
+                            .font(.callout)
                             .foregroundStyle(.secondary)
                     }
-                    .padding()
+                    .padding(16)
+                    .background(
+                        Capsule()
+                            .fill(.ultraThinMaterial)
+                    )
                 }
 
                 Spacer(minLength: 20)
             }
-            .padding(.top)
+            .padding(.top, 20)
         }
-        .background(.background)
     }
 }
 
-// MARK: - Stat Card
+// MARK: - Gradient Stat Card
 
-struct StatCard: View {
+struct GradientStatCard: View {
     let title: String
     let value: String
     let icon: String
-    let color: Color
+    let gradient: [Color]
+
+    @State private var isHovered = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Image(systemName: icon)
                     .font(.title2)
-                    .foregroundStyle(color.gradient)
+                    .foregroundStyle(.white.opacity(0.9))
                 Spacer()
             }
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(value)
                     .font(.system(.title, design: .rounded, weight: .bold))
+                    .foregroundStyle(.white)
                 Text(title)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.75))
             }
         }
-        .padding()
-        .background(.background.secondary)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(
+                    LinearGradient(
+                        colors: gradient,
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .shadow(color: gradient.first?.opacity(0.3) ?? .clear, radius: isHovered ? 12 : 6, y: isHovered ? 6 : 3)
+        )
+        .scaleEffect(isHovered ? 1.03 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: isHovered)
+        .onHover { hovering in
+            isHovered = hovering
+        }
     }
 }
 
@@ -183,36 +244,52 @@ struct StatCard: View {
 struct OutdatedPackageRow: View {
     let package: BrewPackage
     @Environment(AppViewModel.self) private var viewModel
+    @State private var isHovered = false
 
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
                     Text(package.name)
-                        .font(.body.weight(.medium))
+                        .font(.body.weight(.semibold))
                     TypeBadge(type: package.type)
                 }
-                HStack(spacing: 4) {
+                HStack(spacing: 6) {
                     Text(package.currentVersion ?? package.version)
-                        .foregroundStyle(.secondary)
+                        .font(.system(.caption, design: .monospaced))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(RoundedRectangle(cornerRadius: 4).fill(.red.opacity(0.12)))
                     Image(systemName: "arrow.right")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                     Text(package.latestVersion ?? "latest")
-                        .foregroundStyle(.green)
+                        .font(.system(.caption, design: .monospaced))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(RoundedRectangle(cornerRadius: 4).fill(.green.opacity(0.12)))
                 }
-                .font(.caption)
             }
             Spacer()
             Button {
                 viewModel.upgrade(package)
             } label: {
                 Label("Upgrade", systemImage: "arrow.up.circle")
+                    .font(.caption.weight(.medium))
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
+            .tint(.orange)
+            .opacity(isHovered ? 1 : 0.7)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(isHovered ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.clear))
+        )
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .onHover { hovering in isHovered = hovering }
     }
 }
 
@@ -223,13 +300,13 @@ struct TypeBadge: View {
 
     var body: some View {
         Text(type == .formula ? "formula" : "cask")
-            .font(.caption2.weight(.medium))
+            .font(.system(.caption2, design: .rounded, weight: .bold))
             .foregroundStyle(type == .formula ? .green : .purple)
-            .padding(.horizontal, 6)
+            .padding(.horizontal, 7)
             .padding(.vertical, 2)
             .background(
                 Capsule()
-                    .fill(type == .formula ? .green.opacity(0.15) : .purple.opacity(0.15))
+                    .fill(type == .formula ? .green.opacity(0.12) : .purple.opacity(0.12))
             )
     }
 }

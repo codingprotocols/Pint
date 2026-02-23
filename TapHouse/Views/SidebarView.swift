@@ -14,69 +14,118 @@ struct SidebarView: View {
         @Bindable var vm = viewModel
 
         List(selection: $vm.selectedNav) {
-            Section("Homebrew") {
+            Section {
                 ForEach(NavigationItem.allCases) { item in
-                    Label {
-                        HStack {
-                            Text(item.rawValue)
-                            Spacer()
-                            if item == .upgrades && !viewModel.outdatedPackages.isEmpty {
-                                Text("\(viewModel.outdatedPackages.count)")
-                                    .font(.caption2.weight(.bold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 7)
-                                    .padding(.vertical, 2)
-                                    .background(
-                                        Capsule().fill(.orange.gradient)
-                                    )
-                            }
-                            if item == .installed {
-                                Text("\(viewModel.installedPackages.count)")
-                                    .font(.caption2.weight(.medium))
-                                    .foregroundStyle(.secondary)
-                            }
+                    HStack(spacing: 10) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(iconGradient(for: item))
+                                .frame(width: 28, height: 28)
+                            Image(systemName: item.icon)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.white)
                         }
-                    } icon: {
-                        Image(systemName: item.icon)
-                            .foregroundStyle(iconColor(for: item))
+
+                        Text(item.rawValue)
+                            .font(.body.weight(.medium))
+
+                        Spacer()
+
+                        if item == .upgrades && !viewModel.outdatedPackages.isEmpty {
+                            Text("\(viewModel.outdatedPackages.count)")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(
+                                    Capsule()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [.orange, .red],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            )
+                                        )
+                                )
+                        }
+
+                        if item == .installed {
+                            Text("\(viewModel.installedPackages.count)")
+                                .font(.caption2.weight(.medium))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(
+                                    Capsule()
+                                        .fill(.quaternary)
+                                )
+                        }
                     }
+                    .padding(.vertical, 3)
                     .tag(item)
                 }
+            } header: {
+                HStack(spacing: 6) {
+                    Image(systemName: "mug.fill")
+                        .foregroundStyle(.orange.gradient)
+                    Text("TapHouse")
+                        .font(.caption.weight(.bold))
+                        .textCase(.uppercase)
+                        .tracking(1.2)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.bottom, 4)
             }
         }
         .listStyle(.sidebar)
-        .navigationSplitViewColumnWidth(min: 200, ideal: 230, max: 300)
+        .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 300)
         .safeAreaInset(edge: .bottom) {
-            VStack(spacing: 6) {
+            VStack(spacing: 8) {
                 Divider()
-                HStack {
+                HStack(spacing: 8) {
                     if !viewModel.brewVersion.isEmpty {
-                        Text(viewModel.brewVersion)
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(.green)
+                                .frame(width: 6, height: 6)
+                            Text(viewModel.brewVersion)
+                                .font(.caption2.weight(.medium))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
                     }
                     Spacer()
-                    SettingsLink {
-                        Image(systemName: "gear")
+                    Button {
+                        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                    } label: {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 13))
                             .foregroundStyle(.secondary)
+                            .frame(width: 26, height: 26)
+                            .background(.quaternary.opacity(0.5))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                     .buttonStyle(.plain)
                     .help("Settings")
                 }
             }
-            .padding(.horizontal)
-            .padding(.bottom, 8)
+            .padding(.horizontal, 14)
+            .padding(.bottom, 10)
         }
     }
 
-    private func iconColor(for item: NavigationItem) -> Color {
+    private func iconGradient(for item: NavigationItem) -> LinearGradient {
         switch item {
-        case .dashboard: return .blue
-        case .installed: return .green
-        case .upgrades: return .orange
-        case .search: return .purple
-        case .doctor: return .red
+        case .dashboard:
+            return LinearGradient(colors: [.blue, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .installed:
+            return LinearGradient(colors: [.green, .mint], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .upgrades:
+            return LinearGradient(colors: [.orange, .yellow], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .search:
+            return LinearGradient(colors: [.purple, .indigo], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .doctor:
+            return LinearGradient(colors: [.red, .pink], startPoint: .topLeading, endPoint: .bottomTrailing)
         }
     }
 }

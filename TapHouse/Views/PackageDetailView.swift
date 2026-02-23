@@ -16,21 +16,36 @@ struct PackageDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 24) {
+                // Hero header
+                HStack(spacing: 18) {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(package.type == .formula ? .green.opacity(0.15) : .purple.opacity(0.15))
-                            .frame(width: 64, height: 64)
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(
+                                LinearGradient(
+                                    colors: package.type == .formula
+                                        ? [.green.opacity(0.2), .mint.opacity(0.1)]
+                                        : [.purple.opacity(0.2), .indigo.opacity(0.1)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 72, height: 72)
                         Image(systemName: package.type == .formula ? "terminal.fill" : "macwindow")
-                            .font(.title)
-                            .foregroundStyle(package.type == .formula ? .green : .purple)
+                            .font(.system(size: 28, weight: .semibold))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: package.type == .formula ? [.green, .mint] : [.purple, .indigo],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
                     }
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 8) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 10) {
                             Text(package.name)
-                                .font(.title.weight(.bold))
+                                .font(.system(.title, design: .rounded, weight: .bold))
                             TypeBadge(type: package.type)
                         }
                         if let detail = detailedPackage {
@@ -41,22 +56,29 @@ struct PackageDetailView: View {
                     }
                 }
 
-                Divider()
+                // Info cards
+                HStack(spacing: 14) {
+                    InfoCard(
+                        title: "Version",
+                        value: detailedPackage?.version ?? package.version,
+                        icon: "tag.fill",
+                        color: .blue
+                    )
 
-                LabeledContent("Version") {
-                    Text(detailedPackage?.version ?? package.version)
-                        .font(.system(.body, design: .monospaced))
-                }
-
-                if let homepage = detailedPackage?.homepage, !homepage.isEmpty {
-                    LabeledContent("Homepage") {
-                        Link(homepage, destination: URL(string: homepage)!)
-                            .font(.caption)
+                    if let homepage = detailedPackage?.homepage, !homepage.isEmpty {
+                        InfoCard(
+                            title: "Homepage",
+                            value: URL(string: homepage)?.host ?? homepage,
+                            icon: "globe",
+                            color: .cyan,
+                            link: homepage
+                        )
                     }
                 }
 
                 Divider()
 
+                // Actions
                 HStack(spacing: 12) {
                     let isInstalled = viewModel.installedPackages.contains { $0.name == package.name }
 
@@ -65,7 +87,11 @@ struct PackageDetailView: View {
                             Button {
                                 viewModel.upgrade(package)
                             } label: {
-                                Label("Upgrade", systemImage: "arrow.up.circle")
+                                HStack(spacing: 6) {
+                                    Image(systemName: "arrow.up.circle.fill")
+                                    Text("Upgrade")
+                                }
+                                .font(.callout.weight(.semibold))
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(.orange)
@@ -74,24 +100,39 @@ struct PackageDetailView: View {
                         Button(role: .destructive) {
                             viewModel.uninstall(package)
                         } label: {
-                            Label("Uninstall", systemImage: "trash")
+                            HStack(spacing: 6) {
+                                Image(systemName: "trash")
+                                Text("Uninstall")
+                            }
+                            .font(.callout.weight(.medium))
                         }
                         .buttonStyle(.bordered)
                     } else {
                         Button {
                             viewModel.install(package)
                         } label: {
-                            Label("Install", systemImage: "plus.circle")
+                            HStack(spacing: 6) {
+                                Image(systemName: "plus.circle.fill")
+                                Text("Install")
+                            }
+                            .font(.callout.weight(.semibold))
                         }
                         .buttonStyle(.borderedProminent)
+                        .tint(
+                            LinearGradient(colors: [.blue, .indigo], startPoint: .leading, endPoint: .trailing)
+                        )
                     }
                 }
 
-                // MARK: - Release Notes Section
+                // Release Notes Section
                 if isLoadingRelease {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Release Notes", systemImage: "doc.text")
-                            .font(.headline)
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "doc.text.fill")
+                                .foregroundStyle(.blue.gradient)
+                            Text("Release Notes")
+                                .font(.headline)
+                        }
                         HStack(spacing: 8) {
                             ProgressView()
                                 .controlSize(.small)
@@ -100,11 +141,16 @@ struct PackageDetailView: View {
                                 .font(.caption)
                         }
                     }
+                    .padding(16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(.ultraThinMaterial)
+                    )
                 } else if let release = releaseNote {
                     ReleaseNoteSection(release: release)
                 }
             }
-            .padding(24)
+            .padding(28)
         }
         .task {
             let service = BrewService()
@@ -118,6 +164,47 @@ struct PackageDetailView: View {
                 isLoadingRelease = false
             }
         }
+    }
+}
+
+// MARK: - Info Card
+
+struct InfoCard: View {
+    let title: String
+    let value: String
+    let icon: String
+    let color: Color
+    var link: String? = nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(color)
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+
+            if let link, let url = URL(string: link) {
+                Link(value, destination: url)
+                    .font(.system(.callout, design: .monospaced, weight: .medium))
+            } else {
+                Text(value)
+                    .font(.system(.callout, design: .monospaced, weight: .medium))
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.ultraThinMaterial)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(color.opacity(0.15), lineWidth: 1)
+        )
     }
 }
 
@@ -136,14 +223,17 @@ struct ReleaseNoteSection: View {
                 }
             } label: {
                 HStack(spacing: 8) {
-                    Label("Release Notes", systemImage: "doc.text")
+                    Image(systemName: "doc.text.fill")
+                        .foregroundStyle(.blue.gradient)
+                    Text("Release Notes")
                         .font(.headline)
                         .foregroundStyle(.primary)
 
                     Spacer()
 
                     Text(release.tagName)
-                        .font(.system(.caption, design: .monospaced))
+                        .font(.system(.caption, design: .monospaced, weight: .semibold))
+                        .foregroundStyle(.blue)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
                         .background(.blue.opacity(0.1))
@@ -156,37 +246,46 @@ struct ReleaseNoteSection: View {
                     }
 
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.caption)
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
             }
             .buttonStyle(.plain)
 
             if isExpanded {
-                // Release title
                 if !release.title.isEmpty && release.title != release.tagName {
                     Text(release.title)
                         .font(.subheadline.weight(.semibold))
                 }
 
-                // Release body
                 Text(release.body)
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
 
-                // Link to GitHub
                 if let url = URL(string: release.htmlURL), !release.htmlURL.isEmpty {
                     Link(destination: url) {
-                        Label("View on GitHub", systemImage: "arrow.up.right.square")
-                            .font(.caption)
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.up.right.square")
+                            Text("View on GitHub")
+                        }
+                        .font(.caption.weight(.medium))
                     }
                 }
             }
         }
-        .padding(16)
-        .background(.background.secondary)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(.ultraThinMaterial)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(
+                    LinearGradient(colors: [.blue.opacity(0.2), .cyan.opacity(0.1)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                    lineWidth: 1
+                )
+        )
     }
 }

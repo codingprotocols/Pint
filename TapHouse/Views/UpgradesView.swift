@@ -12,18 +12,31 @@ struct UpgradesView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
+            // Header
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text("Available Upgrades")
-                        .font(.largeTitle.weight(.bold))
+                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
                     if viewModel.outdatedPackages.isEmpty {
-                        Text("All packages are up to date!")
-                            .font(.subheadline)
-                            .foregroundStyle(.green)
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.seal.fill")
+                                .foregroundStyle(.green)
+                            Text("All packages are up to date!")
+                                .font(.subheadline)
+                                .foregroundStyle(.green)
+                        }
                     } else {
-                        Text("\(viewModel.outdatedPackages.count) packages can be upgraded")
-                            .font(.subheadline)
-                            .foregroundStyle(.orange)
+                        HStack(spacing: 6) {
+                            Text("\(viewModel.outdatedPackages.count)")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(.orange.gradient))
+                            Text("packages can be upgraded")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
                 Spacer()
@@ -32,37 +45,60 @@ struct UpgradesView: View {
                     Button {
                         Task { await viewModel.loadOutdated() }
                     } label: {
-                        Label("Refresh", systemImage: "arrow.clockwise")
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Refresh")
+                        }
+                        .font(.callout.weight(.medium))
                     }
                     .buttonStyle(.bordered)
+                    .tint(.secondary)
 
                     if !viewModel.outdatedPackages.isEmpty {
                         Button {
                             viewModel.upgradeAll()
                         } label: {
-                            Label("Upgrade All", systemImage: "arrow.up.circle.fill")
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.up.circle.fill")
+                                Text("Upgrade All")
+                            }
+                            .font(.callout.weight(.semibold))
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(.orange)
                     }
                 }
             }
-            .padding()
+            .padding(24)
 
             Divider()
 
             if viewModel.isLoadingOutdated {
                 Spacer()
-                ProgressView("Checking for upgrades…")
+                VStack(spacing: 12) {
+                    ProgressView()
+                    Text("Checking for upgrades…")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
             } else if viewModel.outdatedPackages.isEmpty {
                 Spacer()
-                VStack(spacing: 16) {
-                    Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 56))
-                        .foregroundStyle(.green.gradient)
+                VStack(spacing: 20) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(colors: [.green.opacity(0.15), .mint.opacity(0.1)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                            )
+                            .frame(width: 80, height: 80)
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 36))
+                            .foregroundStyle(
+                                LinearGradient(colors: [.green, .mint], startPoint: .topLeading, endPoint: .bottomTrailing)
+                            )
+                    }
                     Text("Everything is up to date!")
-                        .font(.title2.weight(.medium))
+                        .font(.title2.weight(.semibold))
                     Text("All your packages are on the latest version.")
                         .foregroundStyle(.secondary)
                 }
@@ -76,7 +112,6 @@ struct UpgradesView: View {
                 .listStyle(.inset)
             }
         }
-        .background(.background)
     }
 }
 
@@ -86,6 +121,7 @@ struct UpgradePackageRow: View {
     @State private var releaseNote: ReleaseNote?
     @State private var isLoadingRelease = false
     @State private var showReleaseNotes = false
+    @State private var isHovered = false
 
     /// Look up homepage from installed packages (which have it) or fall back to the package's field.
     private var homepage: String {
@@ -104,14 +140,27 @@ struct UpgradePackageRow: View {
         VStack(alignment: .leading, spacing: 0) {
             // Main row
             HStack(spacing: 12) {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(.orange.gradient)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(
+                            LinearGradient(
+                                colors: [.orange.opacity(0.2), .yellow.opacity(0.1)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 36, height: 36)
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(
+                            LinearGradient(colors: [.orange, .yellow], startPoint: .top, endPoint: .bottom)
+                        )
+                }
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Text(package.name)
-                            .font(.body.weight(.medium))
+                            .font(.body.weight(.semibold))
                         TypeBadge(type: package.type)
                     }
 
@@ -120,8 +169,7 @@ struct UpgradePackageRow: View {
                             .font(.system(.caption, design: .monospaced))
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(.red.opacity(0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                            .background(RoundedRectangle(cornerRadius: 4).fill(.red.opacity(0.1)))
 
                         Image(systemName: "arrow.right")
                             .font(.caption2)
@@ -131,8 +179,7 @@ struct UpgradePackageRow: View {
                             .font(.system(.caption, design: .monospaced))
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(.green.opacity(0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                            .background(RoundedRectangle(cornerRadius: 4).fill(.green.opacity(0.1)))
                     }
                 }
 
@@ -148,17 +195,20 @@ struct UpgradePackageRow: View {
                             loadReleaseNotes()
                         }
                     } label: {
-                        Label("Notes", systemImage: "doc.text")
+                        Image(systemName: "doc.text")
+                            .font(.caption)
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                     .tint(.blue)
+                    .help("Release Notes")
                 }
 
                 Button {
                     viewModel.upgrade(package)
                 } label: {
                     Label("Upgrade", systemImage: "arrow.up.circle")
+                        .font(.caption.weight(.medium))
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
@@ -216,12 +266,21 @@ struct UpgradePackageRow: View {
                     }
                 }
                 .padding(12)
-                .background(.background.secondary)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(.ultraThinMaterial)
+                )
                 .padding(.bottom, 4)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .padding(.horizontal, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(isHovered ? AnyShapeStyle(.quaternary.opacity(0.5)) : AnyShapeStyle(.clear))
+        )
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .onHover { hovering in isHovered = hovering }
     }
 
     private func loadReleaseNotes() {

@@ -12,10 +12,11 @@ struct DoctorView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
+            // Header
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text("Brew Doctor")
-                        .font(.largeTitle.weight(.bold))
+                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
                     Text("Diagnose your Homebrew installation")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -25,20 +26,33 @@ struct DoctorView: View {
                 Button {
                     Task { await viewModel.loadDoctor() }
                 } label: {
-                    Label("Run Diagnostics", systemImage: "stethoscope")
+                    HStack(spacing: 6) {
+                        Image(systemName: "stethoscope")
+                        Text("Run Diagnostics")
+                    }
+                    .font(.callout.weight(.semibold))
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(.red)
+                .tint(
+                    LinearGradient(colors: [.red, .pink], startPoint: .leading, endPoint: .trailing)
+                )
             }
-            .padding()
+            .padding(24)
 
             Divider()
 
             if viewModel.isLoadingDoctor {
                 Spacer()
                 VStack(spacing: 16) {
-                    ProgressView()
-                        .controlSize(.large)
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(colors: [.red.opacity(0.1), .pink.opacity(0.05)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                            )
+                            .frame(width: 80, height: 80)
+                        ProgressView()
+                            .controlSize(.large)
+                    }
                     Text("Running brew doctor…")
                         .font(.headline)
                     Text("This may take a moment")
@@ -48,14 +62,23 @@ struct DoctorView: View {
                 Spacer()
             } else if viewModel.doctorOutput.isEmpty {
                 Spacer()
-                VStack(spacing: 16) {
-                    Image(systemName: "stethoscope")
-                        .font(.system(size: 56))
-                        .foregroundStyle(.secondary.opacity(0.5))
+                VStack(spacing: 20) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(colors: [.red.opacity(0.08), .pink.opacity(0.04)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                            )
+                            .frame(width: 80, height: 80)
+                        Image(systemName: "stethoscope")
+                            .font(.system(size: 36))
+                            .foregroundStyle(
+                                LinearGradient(colors: [.red.opacity(0.4), .pink.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                            )
+                    }
                     Text("No diagnostics yet")
-                        .font(.title2.weight(.medium))
+                        .font(.title2.weight(.semibold))
                     Text("Click \"Run Diagnostics\" to check your Homebrew installation.")
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -66,12 +89,11 @@ struct DoctorView: View {
                             DoctorSection(section: section)
                         }
                     }
-                    .padding()
+                    .padding(24)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
-        .background(.background)
         .onAppear {
             if viewModel.doctorOutput.isEmpty {
                 Task { await viewModel.loadDoctor() }
@@ -128,6 +150,15 @@ struct DoctorOutputSection: Hashable {
         }
     }
 
+    var gradient: [Color] {
+        switch type {
+        case .success: return [.green, .mint]
+        case .warning: return [.orange, .yellow]
+        case .error: return [.red, .pink]
+        case .info: return [.blue, .cyan]
+        }
+    }
+
     var color: Color {
         switch type {
         case .success: return .green
@@ -142,12 +173,20 @@ struct DoctorSection: View {
     let section: DoctorOutputSection
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: section.icon)
-                    .foregroundStyle(section.color)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(colors: section.gradient, startPoint: .topLeading, endPoint: .bottomTrailing)
+                        )
+                        .frame(width: 26, height: 26)
+                    Image(systemName: section.icon)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(.white)
+                }
                 Text(section.type == .success ? "All Good!" : section.lines.first ?? "")
-                    .font(.body.weight(.medium))
+                    .font(.body.weight(.semibold))
             }
 
             if section.lines.count > 1 {
@@ -157,13 +196,22 @@ struct DoctorSection: View {
                     .textSelection(.enabled)
             }
         }
-        .padding()
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(section.color.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.ultraThinMaterial)
+        )
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(section.color.opacity(0.2), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [section.color.opacity(0.3), section.color.opacity(0.1)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
         )
     }
 }

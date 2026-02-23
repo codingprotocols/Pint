@@ -7,8 +7,7 @@
 
 import SwiftUI
 
-/// Inline banner that shows the active brew operation at the bottom of the window.
-/// Replaces the previous separate terminal sheet.
+/// Inline operation banner that appears at the bottom of the detail pane.
 struct OperationBannerView: View {
     @Environment(AppViewModel.self) private var viewModel
     @State private var isExpanded = false
@@ -19,121 +18,121 @@ struct OperationBannerView: View {
                 Divider()
 
                 VStack(spacing: 0) {
-                    // Header row — always visible
+                    // Header row
                     HStack(spacing: 10) {
                         // Status icon
-                        if op.isComplete {
-                            Image(systemName: op.isSuccess ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                .foregroundStyle(op.isSuccess ? .green : .red)
-                                .font(.body)
-                        } else {
+                        if !op.isComplete {
                             ProgressView()
                                 .controlSize(.small)
+                        } else {
+                            ZStack {
+                                Circle()
+                                    .fill(
+                                        op.isSuccess
+                                            ? LinearGradient(colors: [.green, .mint], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                            : LinearGradient(colors: [.red, .pink], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                    )
+                                    .frame(width: 20, height: 20)
+                                Image(systemName: op.isSuccess ? "checkmark" : "xmark")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(.white)
+                            }
                         }
 
                         // Command label
-                        Text("brew \(op.command) \(op.packageName)")
-                            .font(.system(.callout, design: .monospaced))
-                            .lineLimit(1)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(op.isComplete ? (op.isSuccess ? "Completed" : "Failed") : "Running…")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(
+                                    op.isComplete
+                                        ? (op.isSuccess ? .green : .red)
+                                        : .orange
+                                )
+                            Text("brew \(op.command) \(op.packageName)")
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                        }
 
                         Spacer()
 
-                        // Action buttons
                         HStack(spacing: 8) {
-                            // Expand / collapse toggle
+                            // Expand/collapse toggle
                             Button {
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     isExpanded.toggle()
                                 }
                             } label: {
                                 Image(systemName: isExpanded ? "chevron.down" : "chevron.up")
-                                    .contentTransition(.symbolEffect(.replace))
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 24, height: 24)
+                                    .background(.quaternary.opacity(0.5))
+                                    .clipShape(RoundedRectangle(cornerRadius: 5))
                             }
                             .buttonStyle(.plain)
                             .help(isExpanded ? "Collapse" : "Expand")
 
+                            // Cancel / Dismiss
                             if !op.isComplete {
                                 Button {
                                     viewModel.cancelOperation()
                                 } label: {
-                                    Label("Cancel", systemImage: "xmark.circle")
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "xmark")
+                                        Text("Cancel")
+                                    }
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(.red)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(.red.opacity(0.1))
+                                    .clipShape(Capsule())
                                 }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                                .tint(.red)
+                                .buttonStyle(.plain)
                             } else {
                                 Button {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        viewModel.dismissOperation()
-                                    }
+                                    viewModel.dismissOperation()
                                 } label: {
-                                    Label("Dismiss", systemImage: "xmark")
+                                    Image(systemName: "xmark")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                        .frame(width: 24, height: 24)
+                                        .background(.quaternary.opacity(0.5))
+                                        .clipShape(RoundedRectangle(cornerRadius: 5))
                                 }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
+                                .buttonStyle(.plain)
+                                .help("Dismiss")
                             }
                         }
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
 
-                    // Expandable terminal output
+                    // Expandable output
                     if isExpanded {
                         Divider()
-
                         ScrollViewReader { proxy in
                             ScrollView {
-                                VStack(alignment: .leading, spacing: 0) {
-                                    HStack(spacing: 4) {
-                                        Text("$")
-                                            .foregroundStyle(.green)
-                                        Text("brew \(op.command) \(op.packageName)")
-                                            .foregroundStyle(.white)
-                                    }
-                                    .font(.system(.caption, design: .monospaced))
-                                    .padding(.bottom, 6)
-
-                                    Text(op.output)
-                                        .font(.system(.caption, design: .monospaced))
-                                        .foregroundStyle(.white.opacity(0.9))
-                                        .textSelection(.enabled)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                                    if op.isComplete {
-                                        HStack(spacing: 6) {
-                                            Image(systemName: op.isSuccess ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                                .foregroundStyle(op.isSuccess ? .green : .red)
-                                            Text(op.isSuccess ? "Completed successfully" : "Operation failed")
-                                                .foregroundStyle(op.isSuccess ? .green : .red)
-                                        }
-                                        .font(.system(.caption, design: .monospaced))
-                                        .padding(.top, 6)
-                                    }
-
-                                    Color.clear
-                                        .frame(height: 1)
-                                        .id("bottom")
-                                }
-                                .padding(12)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                                Text(op.output)
+                                    .font(.system(.caption2, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(12)
+                                    .id("output-bottom")
                             }
-                            .frame(maxHeight: 200)
-                            .background(Color(red: 0.1, green: 0.1, blue: 0.12))
+                            .frame(height: 160)
+                            .background(.black.opacity(0.03))
                             .onChange(of: op.output) { _, _ in
-                                withAnimation {
-                                    proxy.scrollTo("bottom")
+                                withAnimation(.easeOut(duration: 0.1)) {
+                                    proxy.scrollTo("output-bottom", anchor: .bottom)
                                 }
                             }
                         }
                     }
                 }
-                .background(.bar)
+                .background(.ultraThinMaterial)
             }
             .transition(.move(edge: .bottom).combined(with: .opacity))
-            .onAppear {
-                // Auto-expand when a new operation starts
-                isExpanded = true
-            }
         }
     }
 }

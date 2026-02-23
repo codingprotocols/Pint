@@ -9,44 +9,41 @@ import SwiftUI
 
 struct InstalledView: View {
     @Environment(AppViewModel.self) private var viewModel
-    @State private var selectedPackage: BrewPackage?
 
     var body: some View {
         @Bindable var vm = viewModel
 
         VStack(spacing: 0) {
             // Header
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text("Installed Packages")
-                        .font(.largeTitle.weight(.bold))
+                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
                     Text("\(viewModel.installedPackages.count) packages installed")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
 
-                Picker("Type", selection: $vm.installedFilter) {
-                    Text("All").tag(nil as PackageType?)
-                    Text("Formulae").tag(PackageType.formula as PackageType?)
-                    Text("Casks").tag(PackageType.cask as PackageType?)
+                // Filters
+                HStack(spacing: 8) {
+                    FilterChip(label: "All", isSelected: viewModel.installedFilter == nil) {
+                        viewModel.installedFilter = nil
+                    }
+                    FilterChip(label: "Formulae", isSelected: viewModel.installedFilter == .formula, color: .green) {
+                        viewModel.installedFilter = .formula
+                    }
+                    FilterChip(label: "Casks", isSelected: viewModel.installedFilter == .cask, color: .purple) {
+                        viewModel.installedFilter = .cask
+                    }
                 }
-                .pickerStyle(.segmented)
-                .frame(width: 250)
-
-                Button {
-                    Task { await viewModel.loadInstalled() }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .buttonStyle(.bordered)
             }
-            .padding()
+            .padding(24)
 
-            // Search
-            HStack {
+            // Search bar
+            HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.tertiary)
                 TextField("Filter packages…", text: $vm.installedSearchText)
                     .textFieldStyle(.plain)
                 if !viewModel.installedSearchText.isEmpty {
@@ -54,110 +51,166 @@ struct InstalledView: View {
                         viewModel.installedSearchText = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.tertiary)
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(8)
-            .background(.background.secondary)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .padding(.horizontal)
-            .padding(.bottom, 8)
+            .padding(10)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(.quaternary.opacity(0.5))
+            )
+            .padding(.horizontal, 24)
+            .padding(.bottom, 12)
 
             Divider()
 
             if viewModel.isLoadingInstalled {
                 Spacer()
-                ProgressView("Loading packages…")
+                VStack(spacing: 12) {
+                    ProgressView()
+                    Text("Loading packages…")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
             } else if viewModel.filteredInstalled.isEmpty {
                 Spacer()
-                ContentUnavailableView {
-                    Label("No Packages Found", systemImage: "shippingbox")
-                } description: {
-                    Text("No packages match your current filter.")
+                VStack(spacing: 16) {
+                    Image(systemName: "shippingbox")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.quaternary)
+                    Text("No packages found")
+                        .font(.title3.weight(.medium))
+                        .foregroundStyle(.secondary)
                 }
                 Spacer()
             } else {
-                List(viewModel.filteredInstalled, selection: $selectedPackage) { pkg in
-                    InstalledPackageRow(package: pkg)
-                        .tag(pkg)
+                List {
+                    ForEach(viewModel.filteredInstalled) { pkg in
+                        InstalledPackageRow(package: pkg)
+                    }
                 }
                 .listStyle(.inset)
             }
         }
-        .background(.background)
     }
 }
+
+// MARK: - Filter Chip
+
+struct FilterChip: View {
+    let label: String
+    let isSelected: Bool
+    var color: Color = .blue
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .foregroundStyle(isSelected ? .white : .primary)
+                .background(
+                    Capsule()
+                        .fill(isSelected
+                            ? AnyShapeStyle(color.gradient)
+                            : AnyShapeStyle(.quaternary)
+                        )
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Installed Package Row
 
 struct InstalledPackageRow: View {
     let package: BrewPackage
     @Environment(AppViewModel.self) private var viewModel
-    @State private var isHovering = false
+    @State private var isHovered = false
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: package.type == .formula ? "terminal.fill" : "macwindow")
-                .font(.title3)
-                .foregroundStyle(package.type == .formula ? .green : .purple)
-                .frame(width: 28)
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(
+                        LinearGradient(
+                            colors: package.type == .formula
+                                ? [.green.opacity(0.2), .mint.opacity(0.1)]
+                                : [.purple.opacity(0.2), .indigo.opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 36, height: 36)
+                Image(systemName: package.type == .formula ? "terminal.fill" : "macwindow")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(package.type == .formula ? .green : .purple)
+            }
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(package.name)
-                        .font(.body.weight(.medium))
-                    TypeBadge(type: package.type)
+                        .font(.body.weight(.semibold))
                     if package.isOutdated {
-                        Image(systemName: "exclamationmark.circle.fill")
-                            .foregroundStyle(.orange)
+                        Image(systemName: "arrow.up.circle.fill")
                             .font(.caption)
+                            .foregroundStyle(.orange)
                     }
                 }
-                if !package.description.isEmpty {
-                    Text(package.description)
-                        .font(.caption)
+                HStack(spacing: 6) {
+                    Text(package.version)
+                        .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    if !package.description.isEmpty {
+                        Text("•")
+                            .foregroundStyle(.quaternary)
+                        Text(package.description)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                    }
                 }
             }
 
             Spacer()
 
-            Text(package.version)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(.secondary)
-
-            if isHovering {
-                HStack(spacing: 4) {
+            // Hover actions
+            if isHovered {
+                HStack(spacing: 6) {
                     if package.isOutdated {
                         Button {
                             viewModel.upgrade(package)
                         } label: {
-                            Image(systemName: "arrow.up.circle")
+                            Image(systemName: "arrow.up.circle.fill")
+                                .foregroundStyle(.orange)
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .tint(.orange)
+                        .buttonStyle(.plain)
+                        .help("Upgrade")
                     }
 
-                    Button {
+                    Button(role: .destructive) {
                         viewModel.uninstall(package)
                     } label: {
                         Image(systemName: "trash")
+                            .foregroundStyle(.red.opacity(0.8))
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .tint(.red)
+                    .buttonStyle(.plain)
+                    .help("Uninstall")
                 }
+                .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
         }
         .padding(.vertical, 4)
-        .contentShape(Rectangle())
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                isHovering = hovering
-            }
-        }
+        .padding(.horizontal, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(isHovered ? AnyShapeStyle(.quaternary.opacity(0.5)) : AnyShapeStyle(.clear))
+        )
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .onHover { hovering in isHovered = hovering }
     }
 }
