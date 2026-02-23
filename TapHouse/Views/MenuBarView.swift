@@ -10,6 +10,7 @@ import SwiftUI
 /// The popover content shown when clicking the menu bar icon.
 struct MenuBarView: View {
     @Environment(AppViewModel.self) private var viewModel
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -133,14 +134,24 @@ struct MenuBarView: View {
     }
 
     private func showMainWindow() {
+        // Restore dock icon first
         NSApp.setActivationPolicy(.regular)
-        // Open/focus the main window
+
+        // Try to find and show an existing main window
+        var found = false
         for window in NSApp.windows {
-            if window.canBecomeMain {
+            if window.canBecomeMain && !(window.title.isEmpty && window.level == .statusBar) {
                 window.makeKeyAndOrderFront(nil)
+                found = true
                 break
             }
         }
+
+        // If no window found, open a new one via WindowGroup ID
+        if !found {
+            openWindow(id: "main")
+        }
+
         NSApp.activate(ignoringOtherApps: true)
     }
 }

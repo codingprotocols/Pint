@@ -14,7 +14,7 @@ struct TapHouseApp: App {
     @AppStorage(AppSettingsKeys.showMenuBarIcon) private var showMenuBarIcon = true
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: "main") {
             ContentView()
                 .environment(viewModel)
                 .frame(minWidth: 900, minHeight: 600)
