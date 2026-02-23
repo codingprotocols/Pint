@@ -1,40 +1,59 @@
 # 🍺 TapHouse
 
-A native macOS app for managing Homebrew packages — built with **SwiftUI**.
+> A beautiful, native macOS app for managing Homebrew packages — built with SwiftUI.
 
-Browse, search, install, upgrade, and uninstall formulae and casks without touching the terminal.
+Browse, search, install, upgrade, and uninstall formulae and casks without touching the terminal. TapHouse brings Homebrew into a modern, vibrant GUI with gradient cards, glassmorphism, and smooth animations.
 
 ---
 
-## Features
+## ✨ Features
 
-- **Dashboard** — overview of installed formulae, casks, and outdated packages at a glance
-- **Installed Packages** — browse and filter everything Homebrew has installed
-- **Upgrades** — see outdated packages and upgrade them individually or all at once
-- **Search** — find new formulae and casks via the Homebrew JSON API (fast, no CLI overhead)
-- **Brew Doctor** — run diagnostics and view health warnings inside the app
-- **Live Terminal Output** — watch install/upgrade/uninstall progress in real time
-- **Package Details** — view version, description, homepage, and type for any package
+### Core
+- **📊 Dashboard** — gradient stat cards showing total packages, formulae, casks, and available upgrades at a glance
+- **📦 Installed Packages** — browse, filter (All/Formulae/Casks), and search with hover-reveal actions
+- **⬆️ Upgrades** — see outdated packages with version comparison, upgrade individually or all at once
+- **🔍 Search** — fast package discovery powered by the Homebrew JSON API
+- **🩺 Brew Doctor** — run diagnostics and view health warnings with color-coded sections
+- **📝 Release Notes** — view GitHub release notes for any package directly in-app
 
-## Screenshots
+### Menu Bar
+- **🔔 Menu Bar Icon** — lives in your menu bar for quick access, shows upgrade count
+- **🔄 Background Updates** — automatically checks for outdated packages on a configurable interval
+- **⚙️ Settings** — toggle menu bar visibility, launch at login, and update check frequency
+- **🪟 Background Mode** — closing the window hides to menu bar instead of quitting
 
-<!-- Add screenshots here -->
+### Backup & Restore
+- **📤 Export** — save your installed packages as JSON or Brewfile
+- **📥 Import** — restore packages from a backup file with selective install
+- **🔄 Brewfile Compatible** — export is compatible with `brew bundle install`
 
-## Requirements
+### Polish
+- **🎨 Rich UI** — gradient cards, glassmorphism, hover animations, and vibrant colors
+- **📺 Live Output** — watch install/upgrade/uninstall progress with collapsible terminal output
+- **❌ Cancel Operations** — cancel any running brew operation mid-flight
+- **💾 Memory Optimized** — capped output buffers, operation history limits, and smart caching
+- **🍺 Brew Not Found** — step-by-step Homebrew installation guide when not detected
 
-| Requirement | Version |
-|---|---|
-| macOS | 14.0 (Sonoma) or later |
-| Xcode | 15.0+ |
-| Homebrew | Installed ([brew.sh](https://brew.sh)) |
+---
 
-> If Homebrew is not installed, TapHouse shows step-by-step installation instructions on launch.
+## 📸 Screenshots
 
-## Getting Started
+<!-- Add screenshots here after first build -->
 
+---
+
+## 📥 Installation
+
+### Download (Recommended)
+1. Go to [Releases](../../releases/latest)
+2. Download `TapHouse.zip`
+3. Unzip and drag `TapHouse.app` to `/Applications`
+4. Right-click → **Open** (first time only, to bypass Gatekeeper)
+
+### Build from Source
 1. **Clone the repo**
    ```bash
-   git clone https://github.com/yourusername/TapHouse.git
+   git clone https://github.com/AjeetYadav-Github/TapHouse.git
    cd TapHouse/TapHouse
    ```
 
@@ -45,50 +64,81 @@ Browse, search, install, upgrade, and uninstall formulae and casks without touch
 
 3. **Build & Run** — press `⌘R`
 
-> **Note:** The App Sandbox entitlement is disabled so TapHouse can execute `/opt/homebrew/bin/brew` directly.
+---
 
-## Project Structure
+## 📋 Requirements
+
+| Requirement | Version |
+|---|---|
+| macOS | 14.0 (Sonoma) or later |
+| Xcode | 15.0+ (build from source) |
+| Homebrew | Installed ([brew.sh](https://brew.sh)) |
+
+> If Homebrew is not installed, TapHouse shows step-by-step installation instructions on launch.
+
+---
+
+## 🏗️ Project Structure
 
 ```
 TapHouse/
-├── TapHouseApp.swift          # App entry point
-├── ContentView.swift          # Root NavigationSplitView + BrewNotFoundView
+├── TapHouseApp.swift              # App entry point + MenuBarExtra + Settings
+├── ContentView.swift              # Root NavigationSplitView + BrewNotFoundView
 ├── Models/
-│   └── BrewPackage.swift      # BrewPackage, PackageType, BrewStatus, BrewOperation
+│   ├── BrewPackage.swift          # Data models (BrewPackage, ReleaseNote, etc.)
+│   └── AppSettings.swift          # Settings keys and enums
 ├── ViewModels/
-│   └── AppViewModel.swift     # Central @Observable view model
+│   └── AppViewModel.swift         # Central @Observable view model
 ├── Views/
-│   ├── SidebarView.swift      # Sidebar navigation
-│   ├── DashboardView.swift    # Home dashboard
-│   ├── InstalledView.swift    # Installed packages list
-│   ├── UpgradesView.swift     # Outdated packages
-│   ├── SearchView.swift       # Package search
-│   ├── DoctorView.swift       # brew doctor output
-│   ├── PackageDetailView.swift# Package detail sheet
-│   └── TerminalOutputView.swift# Live operation output
+│   ├── SidebarView.swift          # Sidebar navigation with gradient icons
+│   ├── DashboardView.swift        # Dashboard with gradient stat cards
+│   ├── InstalledView.swift        # Installed packages with filter chips
+│   ├── UpgradesView.swift         # Outdated packages with release notes
+│   ├── SearchView.swift           # Package search
+│   ├── BackupView.swift           # Export/Import packages
+│   ├── DoctorView.swift           # brew doctor diagnostics
+│   ├── PackageDetailView.swift    # Package detail with hero header
+│   ├── MenuBarView.swift          # Menu bar popover
+│   ├── SettingsView.swift         # App settings
+│   └── TerminalOutputView.swift   # Live operation output banner
 └── Services/
-    ├── ShellExecutor.swift    # Low-level Process wrapper for brew CLI
-    ├── BrewService.swift      # High-level brew operations (install, upgrade, etc.)
-    └── BrewAPIClient.swift    # Homebrew JSON API client (search & info)
+    ├── ShellExecutor.swift        # Low-level Process wrapper
+    ├── BrewService.swift          # High-level brew operations
+    ├── BrewAPIClient.swift        # Homebrew JSON API + GitHub releases
+    └── BackupManager.swift        # Export/Import logic
 ```
 
-## Architecture
+---
 
-- **SwiftUI + @Observable** — reactive UI powered by the Observation framework
-- **Actor-based concurrency** — `ShellExecutor` and `BrewAPIClient` are Swift actors for safe concurrent access
-- **Dual data source** — CLI (`BrewService`) for mutations, JSON API (`BrewAPIClient`) for fast search & package info
-- **Streaming output** — pipe-based real-time terminal output during long operations
-
-## Tech Stack
+## 🧱 Architecture
 
 | Layer | Technology |
 |---|---|
-| UI | SwiftUI, NavigationSplitView |
+| UI | SwiftUI, NavigationSplitView, MenuBarExtra |
 | State | @Observable, @MainActor |
-| Networking | URLSession (Homebrew JSON API) |
+| Networking | URLSession (Homebrew JSON API, GitHub Releases) |
 | Shell | Foundation.Process |
 | Concurrency | Swift Concurrency (async/await, actors) |
+| Settings | @AppStorage, SMAppService |
 
-## License
+---
 
-MIT © [Ajeet Yadav](https://github.com/yourusername)
+## 🚀 Releasing
+
+TapHouse uses GitHub Actions to automatically build and create a release when you push a version tag:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+This triggers the CI workflow which:
+1. Builds the app on macOS
+2. Creates a `.zip` archive
+3. Publishes a GitHub Release with the archive attached
+
+---
+
+## 📄 License
+
+MIT © [Ajeet Yadav](https://github.com/AjeetYadav-Github)
