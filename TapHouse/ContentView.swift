@@ -28,6 +28,8 @@ struct ContentView: View {
                         UpgradesView()
                     case .search:
                         SearchView()
+                    case .backup:
+                        BackupView()
                     case .doctor:
                         DoctorView()
                     }

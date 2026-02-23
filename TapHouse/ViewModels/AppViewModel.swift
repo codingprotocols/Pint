@@ -14,6 +14,7 @@ enum NavigationItem: String, CaseIterable, Identifiable {
     case installed = "Installed"
     case upgrades = "Upgrades"
     case search = "Search"
+    case backup = "Backup"
     case doctor = "Brew Doctor"
 
     var id: String { rawValue }
@@ -24,6 +25,7 @@ enum NavigationItem: String, CaseIterable, Identifiable {
         case .installed: return "shippingbox.fill"
         case .upgrades: return "arrow.up.circle.fill"
         case .search: return "magnifyingglass"
+        case .backup: return "icloud.fill"
         case .doctor: return "stethoscope"
         }
     }
