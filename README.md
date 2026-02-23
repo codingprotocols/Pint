@@ -48,7 +48,20 @@ Browse, search, install, upgrade, and uninstall formulae and casks without touch
 1. Go to [Releases](../../releases/latest)
 2. Download `TapHouse.zip`
 3. Unzip and drag `TapHouse.app` to `/Applications`
-4. Right-click → **Open** (first time only, to bypass Gatekeeper)
+
+#### Troubleshooting "App cannot be opened"
+If you see the error *"Apple could not verify “TapHouse.app” is free of malware"* or similar when trying to open the app, macOS Gatekeeper is blocking it because it is not notarized.
+
+**To bypass this:**
+1. Try to open the app normally (you'll get the error).
+2. Click **OK** on the error message.
+3. Open **System Settings** and go to **Privacy & Security**.
+4. Scroll down to the "Security" section. You should see a message saying *"TapHouse.app" was blocked from use because it is not from an identified developer*.
+5. Click the **Open Anyway** button next to it.
+6. Enter your Mac password/Touch ID if prompted, and then click **Open**.
+
+*(Alternatively, you can just **Right-click** or **Control-click** on `TapHouse.app` in Finder and select **Open**).*
+
 
 ### Build from Source
 1. **Clone the repo**
