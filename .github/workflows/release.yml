@@ -1,0 +1,76 @@
+name: Build & Release 🍺
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build TapHouse
+    runs-on: macos-14
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Build
+        run: |
+          cd TapHouse
+          xcodebuild -project TapHouse.xcodeproj \
+            -scheme TapHouse \
+            -configuration Release \
+            -derivedDataPath build \
+            -arch arm64 -arch x86_64 \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=NO \
+            build
+
+      - name: Package
+        run: |
+          APP_PATH=$(find TapHouse/build -name "TapHouse.app" -type d | head -1)
+          echo "Found app at: $APP_PATH"
+          
+          # Create output directory
+          mkdir -p release
+          
+          # Copy app bundle
+          cp -R "$APP_PATH" release/TapHouse.app
+          
+          # Create zip
+          cd release
+          zip -r -y TapHouse.zip TapHouse.app
+          
+          echo "Archive created: $(ls -lh TapHouse.zip)"
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: TapHouse ${{ steps.version.outputs.VERSION }}
+          body: |
+            ## TapHouse ${{ steps.version.outputs.VERSION }}
+            
+            ### Installation
+            1. Download `TapHouse.zip` below
+            2. Unzip and drag `TapHouse.app` to `/Applications`
+            3. Right-click → **Open** (first time only)
+            
+            > **Requires:** macOS 14.0 (Sonoma) or later + [Homebrew](https://brew.sh)
+            
+            See [CHANGELOG.md](CHANGELOG.md) for full release notes.
+          files: release/TapHouse.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
