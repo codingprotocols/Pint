@@ -34,8 +34,14 @@ actor BrewAPIClient {
         let fetchedAt: Date
     }
 
+    private struct CachedRelease {
+        let note: ReleaseNote?
+        let fetchedAt: Date
+    }
+
     private var formulaCache: CachedList?
     private var caskCache: CachedList?
+    private var releaseNoteCache: [String: CachedRelease] = [:]
     private let cacheTTL: TimeInterval = 600 // 10 minutes
 
     private let session: URLSession = {
@@ -44,6 +50,30 @@ actor BrewAPIClient {
         config.timeoutIntervalForResource = 30
         return URLSession(configuration: config)
     }()
+
+    // MARK: - Memory Management
+
+    /// Clear all in-memory caches (called on memory pressure).
+    func clearCaches() {
+        formulaCache = nil
+        caskCache = nil
+        releaseNoteCache.removeAll()
+    }
+
+    /// Monitor for system memory pressure and auto-clear caches.
+    private static let memoryPressureSource: DispatchSourceMemoryPressure = {
+        let source = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
+        source.setEventHandler {
+            Task { await BrewAPIClient.shared.clearCaches() }
+        }
+        source.resume()
+        return source
+    }()
+
+    /// Force the memory pressure source to initialize on first access.
+    private func ensureMemoryObserver() {
+        _ = Self.memoryPressureSource
+    }
 
     // MARK: - Search
 
@@ -176,8 +206,18 @@ actor BrewAPIClient {
 
     /// Fetch the latest release notes from GitHub for a package.
     /// Returns `nil` if the homepage is not a GitHub repo or the API call fails.
+    /// Results are cached for 10 minutes.
     func fetchReleaseNotes(homepage: String) async -> ReleaseNote? {
+        ensureMemoryObserver()
         guard let (owner, repo) = parseGitHubRepo(from: homepage) else { return nil }
+
+        let cacheKey = "\(owner)/\(repo)"
+
+        // Check cache first
+        if let cached = releaseNoteCache[cacheKey],
+           Date().timeIntervalSince(cached.fetchedAt) < cacheTTL {
+            return cached.note
+        }
 
         let urlString = "https://api.github.com/repos/\(owner)/\(repo)/releases/latest"
         guard let url = URL(string: urlString) else { return nil }
@@ -209,14 +249,18 @@ actor BrewAPIClient {
                 return nil
             }
 
-            return ReleaseNote(
+            let note = ReleaseNote(
                 tagName: tagName,
                 title: title,
                 body: body,
                 publishedAt: formatDate(publishedAt),
                 htmlURL: htmlURL
             )
+            releaseNoteCache[cacheKey] = CachedRelease(note: note, fetchedAt: Date())
+            return note
         } catch {
+            // Cache the failure too to avoid repeated requests
+            releaseNoteCache[cacheKey] = CachedRelease(note: nil, fetchedAt: Date())
             return nil
         }
     }

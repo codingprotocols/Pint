@@ -54,6 +54,9 @@ final class AppViewModel {
     var activeOperation: BrewOperation? = nil
     var operationHistory: [BrewOperation] = []
 
+    /// Max output buffer size (50 KB) to avoid unbounded memory growth.
+    private static let maxOutputSize = 50_000
+
     /// The currently running Task — stored so it can be cancelled.
     private var runningTask: Task<Void, Never>?
 
@@ -257,6 +260,12 @@ final class AppViewModel {
                 try await action { text in
                     Task { @MainActor in
                         capturedSelf.activeOperation?.output += text
+                        // Cap output to prevent unbounded memory growth
+                        if let output = capturedSelf.activeOperation?.output,
+                           output.count > AppViewModel.maxOutputSize {
+                            let trimmed = String(output.suffix(AppViewModel.maxOutputSize))
+                            capturedSelf.activeOperation?.output = "… (output trimmed)\n" + trimmed
+                        }
                     }
                 }
                 await MainActor.run {
@@ -284,8 +293,16 @@ final class AppViewModel {
             }
 
             await MainActor.run {
-                if let op = capturedSelf.activeOperation {
+                if var op = capturedSelf.activeOperation {
+                    // Trim output for archival to save memory
+                    if op.output.count > 500 {
+                        op.output = String(op.output.suffix(500))
+                    }
                     capturedSelf.operationHistory.insert(op, at: 0)
+                    // Keep only last 20 operations
+                    if capturedSelf.operationHistory.count > 20 {
+                        capturedSelf.operationHistory = Array(capturedSelf.operationHistory.prefix(20))
+                    }
                 }
                 capturedSelf.runningTask = nil
             }
