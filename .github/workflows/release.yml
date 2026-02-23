@@ -21,7 +21,6 @@ jobs:
 
       - name: Build
         run: |
-          cd TapHouse
           xcodebuild -project TapHouse.xcodeproj \
             -scheme TapHouse \
             -configuration Release \
@@ -35,7 +34,7 @@ jobs:
 
       - name: Package
         run: |
-          APP_PATH=$(find TapHouse/build -name "TapHouse.app" -type d | head -1)
+          APP_PATH=$(find build -name "TapHouse.app" -type d | head -1)
           echo "Found app at: $APP_PATH"
           
           # Create output directory
