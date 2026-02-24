@@ -1,11 +1,11 @@
 # Changelog
 
-All notable changes to TapHouse will be documented in this file.
+All notable changes to Pint will be documented in this file.
 
 ## [1.1.0] — 2026-02-23
 
 ### ✨ New Features
-- **Menu Bar Integration** — TapHouse lives in your menu bar with a dynamic icon showing update availability
+- **Menu Bar Integration** — Pint lives in your menu bar with a dynamic icon showing update availability
 - **Background Update Checking** — automatically checks for outdated packages on a configurable interval (15m / 1h / 4h / daily)
 - **Settings Window** — toggle menu bar visibility, launch at login, and update check frequency
 - **Background Mode** — closing the main window hides to menu bar instead of quitting the app
@@ -31,7 +31,7 @@ All notable changes to TapHouse will be documented in this file.
 - Added memory pressure observer to auto-clear all caches when macOS signals low memory
 
 ### 🐛 Fixes
-- Fixed "Open TapHouse" from menu bar not working on first click after window close
+- Fixed "Open Pint" from menu bar not working on first click after window close
 - Fixed ShapeStyle type mismatches in hover ternary expressions
 
 ---
@@ -40,7 +40,7 @@ All notable changes to TapHouse will be documented in this file.
 
 ### 🎉 Initial Release
 
-**TapHouse** — a native macOS GUI for managing Homebrew packages, built with SwiftUI.
+**Pint** — a native macOS GUI for managing Homebrew packages, built with SwiftUI.
 
 ### Features
 - **Dashboard** — overview of installed formulae, casks, and outdated packages

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-PBXPROJ="TapHouse.xcodeproj/project.pbxproj"
+PBXPROJ="Pint.xcodeproj/project.pbxproj"
 
 if [[ ! -f "$PBXPROJ" ]]; then
     echo "Error: $PBXPROJ not found. Please run this script from the project root."

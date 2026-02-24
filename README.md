@@ -1,8 +1,8 @@
-# 🍺 TapHouse
+# 🍺 Pint
 
 > A beautiful, native macOS app for managing Homebrew packages — built with SwiftUI.
 
-Browse, search, install, upgrade, and uninstall formulae and casks without touching the terminal. TapHouse brings Homebrew into a modern, vibrant GUI with gradient cards, glassmorphism, and smooth animations.
+Browse, search, install, upgrade, and uninstall formulae and casks without touching the terminal. Pint brings Homebrew into a modern, vibrant GUI with gradient cards, glassmorphism, and smooth animations.
 
 ---
 
@@ -46,33 +46,33 @@ Browse, search, install, upgrade, and uninstall formulae and casks without touch
 
 ### Download (Recommended)
 1. Go to [Releases](../../releases/latest)
-2. Download `TapHouse.zip`
-3. Unzip and drag `TapHouse.app` to `/Applications`
+2. Download `Pint.zip`
+3. Unzip and drag `Pint.app` to `/Applications`
 
 #### Troubleshooting "App cannot be opened"
-If you see the error *"Apple could not verify “TapHouse.app” is free of malware"* or similar when trying to open the app, macOS Gatekeeper is blocking it because it is not notarized.
+If you see the error *"Apple could not verify “Pint.app” is free of malware"* or similar when trying to open the app, macOS Gatekeeper is blocking it because it is not notarized.
 
 **To bypass this:**
 1. Try to open the app normally (you'll get the error).
 2. Click **OK** on the error message.
 3. Open **System Settings** and go to **Privacy & Security**.
-4. Scroll down to the "Security" section. You should see a message saying *"TapHouse.app" was blocked from use because it is not from an identified developer*.
+4. Scroll down to the "Security" section. You should see a message saying *"Pint.app" was blocked from use because it is not from an identified developer*.
 5. Click the **Open Anyway** button next to it.
 6. Enter your Mac password/Touch ID if prompted, and then click **Open**.
 
-*(Alternatively, you can just **Right-click** or **Control-click** on `TapHouse.app` in Finder and select **Open**).*
+*(Alternatively, you can just **Right-click** or **Control-click** on `Pint.app` in Finder and select **Open**).*
 
 
 ### Build from Source
 1. **Clone the repo**
    ```bash
-   git clone https://github.com/codingprotocols/TapHouse.git
-   cd TapHouse/TapHouse
+   git clone https://github.com/codingprotocols/Pint.git
+   cd Pint
    ```
 
 2. **Open in Xcode**
    ```bash
-   open TapHouse.xcodeproj
+   open Pint.xcodeproj
    ```
 
 3. **Build & Run** — press `⌘R`
@@ -87,15 +87,15 @@ If you see the error *"Apple could not verify “TapHouse.app” is free of malw
 | Xcode | 15.0+ (build from source) |
 | Homebrew | Installed ([brew.sh](https://brew.sh)) |
 
-> If Homebrew is not installed, TapHouse shows step-by-step installation instructions on launch.
+> If Homebrew is not installed, Pint shows step-by-step installation instructions on launch.
 
 ---
 
 ## 🏗️ Project Structure
 
 ```
-TapHouse/
-├── TapHouseApp.swift              # App entry point + MenuBarExtra + Settings
+Pint/
+├── PintApp.swift                  # App entry point + MenuBarExtra + Settings
 ├── ContentView.swift              # Root NavigationSplitView + BrewNotFoundView
 ├── Models/
 │   ├── BrewPackage.swift          # Data models (BrewPackage, ReleaseNote, etc.)
@@ -138,17 +138,12 @@ TapHouse/
 
 ## 🚀 Releasing
 
-TapHouse uses GitHub Actions to automatically build and create a release when you push a version tag:
+Pint uses GitHub Actions to automatically build and create a release when you push a version tag:
 
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
 ```
-
-This triggers the CI workflow which:
-1. Builds the app on macOS
-2. Creates a `.zip` archive
-3. Publishes a GitHub Release with the archive attached
 
 ---
 
