@@ -95,9 +95,7 @@ struct SidebarView: View {
                         }
                     }
                     Spacer()
-                    Button {
-                        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-                    } label: {
+                    SettingsLink {
                         Image(systemName: "gearshape.fill")
                             .font(.system(size: 13))
                             .foregroundStyle(.secondary)
