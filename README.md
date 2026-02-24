@@ -66,7 +66,7 @@ If you see the error *"Apple could not verify “TapHouse.app” is free of malw
 ### Build from Source
 1. **Clone the repo**
    ```bash
-   git clone https://github.com/AjeetYadav-Github/TapHouse.git
+   git clone https://github.com/codingprotocols/TapHouse.git
    cd TapHouse/TapHouse
    ```
 
@@ -154,4 +154,4 @@ This triggers the CI workflow which:
 
 ## 📄 License
 
-MIT © [Ajeet Yadav](https://github.com/AjeetYadav-Github)
+MIT © [Ajeet Yadav](https://github.com/codingprotocols)
