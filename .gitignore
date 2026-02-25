@@ -2,6 +2,7 @@
 build/
 DerivedData/
 *.xcuserdata
+xcuserdata/
 *.xcworkspace/xcuserdata/
 *.pbxuser
 *.mode1v3
