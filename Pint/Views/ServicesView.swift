@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ServicesView: View {
     @State private var viewModel = ServicesViewModel()
+    @Environment(AppViewModel.self) private var appViewModel
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,6 +38,7 @@ struct ServicesView: View {
                     }
                     .buttonStyle(.bordered)
                     .help("Refresh services")
+                    .disabled(appViewModel.isOperationRunning)
 
                     Menu {
                         Section("Auto-Refresh") {
@@ -60,6 +62,7 @@ struct ServicesView: View {
                         Text("\(viewModel.refreshInterval)s")
                     }
                     .buttonStyle(.bordered)
+                    .disabled(appViewModel.isOperationRunning)
                 }
             }
             .padding()
@@ -82,12 +85,16 @@ struct ServicesView: View {
             }
         }
         .task {
-            await viewModel.loadServices()
+            if !appViewModel.isOperationRunning {
+                await viewModel.loadServices()
+            }
         }
+        .environment(appViewModel)
     }
 }
 
 struct ServiceRow: View {
+    @Environment(AppViewModel.self) private var appViewModel
     let service: BrewServiceItem
     let viewModel: ServicesViewModel
 
@@ -134,6 +141,7 @@ struct ServiceRow: View {
                         Label("Restart", systemImage: "arrow.counterclockwise")
                     }
                     .buttonStyle(.bordered)
+                    .disabled(appViewModel.isOperationRunning)
 
                     Button {
                         Task { await viewModel.stopService(service.name) }
@@ -142,6 +150,7 @@ struct ServiceRow: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(.red)
+                    .disabled(appViewModel.isOperationRunning)
                 } else {
                     Button {
                         Task { await viewModel.startService(service.name) }
@@ -150,6 +159,7 @@ struct ServiceRow: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.green)
+                    .disabled(appViewModel.isOperationRunning)
                 }
             }
             .controlSize(.small)

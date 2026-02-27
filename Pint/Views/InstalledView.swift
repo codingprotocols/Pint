@@ -37,6 +37,7 @@ struct InstalledView: View {
                             Label("Uninstall", systemImage: "trash")
                         }
                         .buttonStyle(.bordered)
+                        .disabled(viewModel.isOperationRunning)
 
                         Button {
                             let packages = viewModel.installedPackages.filter { selection.contains($0.id) && $0.isOutdated }
@@ -46,7 +47,7 @@ struct InstalledView: View {
                             Label("Upgrade", systemImage: "arrow.up.circle")
                         }
                         .buttonStyle(.bordered)
-                        .disabled(viewModel.installedPackages.filter { selection.contains($0.id) && $0.isOutdated }.isEmpty)
+                        .disabled(viewModel.isOperationRunning || viewModel.installedPackages.filter { selection.contains($0.id) && $0.isOutdated }.isEmpty)
 
                         Divider().frame(height: 20)
                     }
@@ -215,6 +216,7 @@ struct InstalledPackageRow: View {
                         }
                         .buttonStyle(.plain)
                         .help("Upgrade")
+                        .disabled(viewModel.isOperationRunning)
                     }
 
                     Button(role: .destructive) {
@@ -225,6 +227,7 @@ struct InstalledPackageRow: View {
                     }
                     .buttonStyle(.plain)
                     .help("Uninstall")
+                    .disabled(viewModel.isOperationRunning)
                 }
                 .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }

@@ -61,6 +61,7 @@ final class AppViewModel {
     var isSearching: Bool = false
     var isLoadingDoctor: Bool = false
     var isLoadingDiskUsage: Bool = false
+    var isRefreshing: Bool = false
 
 
     // Metadata persistence
@@ -82,6 +83,11 @@ final class AppViewModel {
     /// Whether there are packages available for upgrade.
     var hasUpdates: Bool {
         !outdatedPackages.isEmpty
+    }
+
+    /// Whether a blocking Homebrew operation is currently running.
+    var isOperationRunning: Bool {
+        activeOperation != nil && !(activeOperation?.isComplete ?? false)
     }
 
     // Error handling
@@ -127,6 +133,9 @@ final class AppViewModel {
                 return
             }
             brewAvailable = true
+            isRefreshing = true
+            defer { isRefreshing = false }
+            
             loadMetadata()
             loadHistory()
             await loadInstalled()
@@ -322,24 +331,49 @@ final class AppViewModel {
     }
 
     private func runOperation(operation: BrewOperation, action: @escaping (@escaping @Sendable (String) -> Void) async throws -> Void) {
-        let capturedSelf = self
+        // Prevent concurrent operations
+        if isOperationRunning {
+            showError("An operation is already in progress. Please wait for it to complete.")
+            return
+        }
 
+        let capturedSelf = self
         activeOperation = operation
 
         runningTask = Task {
+            // Use a local buffer and a dedicated update task to throttle UI updates.
+            // This prevents the Main Actor from being flooded by terminal output.
+            let outputBuffer = UnsafeMutableSendableBox("")
+            var lastUpdate = Date.distantPast
+            
             do {
                 try await action { text in
-                    Task { @MainActor in
-                        capturedSelf.activeOperation?.output += text
-                        // Cap output to prevent unbounded memory growth
-                        if let output = capturedSelf.activeOperation?.output,
-                           output.count > AppViewModel.maxOutputSize {
-                            let trimmed = String(output.suffix(AppViewModel.maxOutputSize))
-                            capturedSelf.activeOperation?.output = "… (output trimmed)\n" + trimmed
+                    outputBuffer.value += text
+                    
+                    // Throttle updates to ~10Hz
+                    let now = Date()
+                    if now.timeIntervalSince(lastUpdate) > 0.1 {
+                        let currentOutput = outputBuffer.value
+                        Task { @MainActor in
+                            capturedSelf.activeOperation?.output += currentOutput
+                            // Cap output to prevent unbounded memory growth
+                            if let output = capturedSelf.activeOperation?.output,
+                               output.count > AppViewModel.maxOutputSize {
+                                let trimmed = String(output.suffix(AppViewModel.maxOutputSize))
+                                capturedSelf.activeOperation?.output = "… (output trimmed)\n" + trimmed
+                            }
                         }
+                        outputBuffer.value = ""
+                        lastUpdate = now
                     }
                 }
+                
+                // Final flush
+                let finalOutput = outputBuffer.value
                 await MainActor.run {
+                    if !finalOutput.isEmpty {
+                        capturedSelf.activeOperation?.output += finalOutput
+                    }
                     capturedSelf.activeOperation?.isComplete = true
                     capturedSelf.activeOperation?.isSuccess = true
                 }

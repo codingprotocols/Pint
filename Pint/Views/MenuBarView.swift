@@ -77,6 +77,7 @@ struct MenuBarView: View {
                 .buttonStyle(.plain)
                 .padding(12)
                 .background(.orange.opacity(0.08))
+                .disabled(viewModel.isOperationRunning)
             }
 
             Divider()
@@ -96,6 +97,7 @@ struct MenuBarView: View {
                 .buttonStyle(.plain)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
+                .disabled(viewModel.isOperationRunning)
 
                 Divider()
 
@@ -189,6 +191,7 @@ struct MenuBarPackageRow: View {
             }
             .buttonStyle(.plain)
             .help("Upgrade \(package.name)")
+            .disabled(viewModel.isOperationRunning)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)

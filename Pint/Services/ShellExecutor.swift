@@ -11,8 +11,28 @@ import Foundation
 /// The readabilityHandler callbacks are serialised per-handle, so concurrent
 /// mutation does not occur in practice.
 final class UnsafeMutableSendableBox<T>: @unchecked Sendable {
-    nonisolated(unsafe) var value: T
-    nonisolated init(_ value: T) { self.value = value }
+    private let lock = NSLock()
+    private var _value: T
+    var value: T {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return _value
+        }
+        set {
+            lock.lock()
+            _value = newValue
+            lock.unlock()
+        }
+    }
+    nonisolated init(_ value: T) { self._value = value }
+    
+    /// Atomically mutate the value in place.
+    func mutate(_ transform: (inout T) -> Void) {
+        lock.lock()
+        transform(&_value)
+        lock.unlock()
+    }
 }
 
 /// Low-level shell command executor with support for streaming output.

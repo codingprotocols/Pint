@@ -35,6 +35,7 @@ struct DashboardView: View {
                         }
                         .buttonStyle(.bordered)
                         .tint(.secondary)
+                        .disabled(viewModel.isOperationRunning)
 
                         if !viewModel.outdatedPackages.isEmpty {
                             Button {
@@ -48,6 +49,7 @@ struct DashboardView: View {
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(.orange)
+                            .disabled(viewModel.isOperationRunning)
                         }
                     }
                 }
@@ -281,6 +283,7 @@ struct OutdatedPackageRow: View {
             .controlSize(.small)
             .tint(.orange)
             .opacity(isHovered ? 1 : 0.7)
+            .disabled(viewModel.isOperationRunning)
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 8)

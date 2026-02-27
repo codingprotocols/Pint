@@ -53,6 +53,7 @@ struct UpgradesView: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(.secondary)
+                    .disabled(viewModel.isOperationRunning)
 
                     if !viewModel.outdatedPackages.isEmpty {
                         Button {
@@ -66,6 +67,7 @@ struct UpgradesView: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(.orange)
+                        .disabled(viewModel.isOperationRunning)
                     }
                 }
             }

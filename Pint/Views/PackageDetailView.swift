@@ -109,6 +109,7 @@ struct PackageDetailView: View {
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(.orange)
+                            .disabled(viewModel.isOperationRunning)
                         }
 
                         Button(role: .destructive) {
@@ -121,6 +122,7 @@ struct PackageDetailView: View {
                             .font(.callout.weight(.medium))
                         }
                         .buttonStyle(.bordered)
+                        .disabled(viewModel.isOperationRunning)
 
                         // Dependency Tree Button
                         if package.type == .formula {
@@ -149,6 +151,7 @@ struct PackageDetailView: View {
                         .tint(
                             LinearGradient(colors: [.blue, .indigo], startPoint: .leading, endPoint: .trailing)
                         )
+                        .disabled(viewModel.isOperationRunning)
                     }
                 }
 

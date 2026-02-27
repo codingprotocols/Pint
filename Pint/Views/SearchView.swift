@@ -169,6 +169,7 @@ struct SearchResultRow: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+                .disabled(viewModel.isOperationRunning)
             } else {
                 Button {
                     viewModel.install(package)
@@ -181,6 +182,7 @@ struct SearchResultRow: View {
                 .tint(
                     LinearGradient(colors: [.blue, .indigo], startPoint: .leading, endPoint: .trailing)
                 )
+                .disabled(viewModel.isOperationRunning)
             }
         }
         .padding(.vertical, 4)
