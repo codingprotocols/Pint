@@ -33,6 +33,10 @@ protocol BrewServiceProtocol: AnyObject {
     func listTaps() async throws -> [String]
     func addTap(_ name: String, onOutput: @escaping @Sendable (String) -> Void) async throws
     func removeTap(_ name: String, onOutput: @escaping @Sendable (String) -> Void) async throws
+    func pin(_ name: String) async throws
+    func unpin(_ name: String) async throws
+    func autoremove(onOutput: @escaping @Sendable (String) -> Void) async throws
+    func installMultiple(_ names: [String], isCask: Bool, onOutput: @escaping @Sendable (String) -> Void) async throws
 }
 
 // MARK: - Codable Types (Homebrew JSON schema)
@@ -46,6 +50,8 @@ private struct BrewInfoOutput: Decodable {
         let homepage: String?
         let installed: [InstalledVersion]
         let outdated: Bool
+        let pinned: Bool
+        let caveats: String?
         let versions: FormulaVersions?
 
         struct InstalledVersion: Decodable {
@@ -138,7 +144,9 @@ final class BrewService: BrewServiceProtocol {
                     isOutdated: formula.outdated,
                     currentVersion: version,
                     latestVersion: formula.outdated ? formula.versions?.stable : nil,
-                    installedOnRequest: onRequest
+                    installedOnRequest: onRequest,
+                    isPinned: formula.pinned,
+                    caveats: formula.caveats.flatMap { $0.isEmpty ? nil : $0 }
                 )
             }
         } catch {
@@ -340,6 +348,31 @@ final class BrewService: BrewServiceProtocol {
 
     func removeTap(_ name: String, onOutput: @escaping @Sendable (String) -> Void) async throws {
         try await ShellExecutor.runStreaming(["untap", name], onOutput: onOutput)
+    }
+
+    // MARK: - Pin / Unpin
+
+    func pin(_ name: String) async throws {
+        _ = try await ShellExecutor.run(["pin", name])
+    }
+
+    func unpin(_ name: String) async throws {
+        _ = try await ShellExecutor.run(["unpin", name])
+    }
+
+    // MARK: - Autoremove
+
+    func autoremove(onOutput: @escaping @Sendable (String) -> Void) async throws {
+        try await ShellExecutor.runStreaming(["autoremove"], onOutput: onOutput)
+    }
+
+    // MARK: - Bulk Install
+
+    func installMultiple(_ names: [String], isCask: Bool, onOutput: @escaping @Sendable (String) -> Void) async throws {
+        guard !names.isEmpty else { return }
+        var args = ["install"] + names
+        if isCask { args.insert("--cask", at: 1) }
+        try await ShellExecutor.runStreaming(args, onOutput: onOutput)
     }
 
     // MARK: - Private Codable Types

@@ -10,6 +10,13 @@ import SwiftUI
 struct SearchView: View {
     @Environment(AppViewModel.self) private var viewModel
     @State private var debounceTask: Task<Void, Never>?
+    @State private var isSelectMode = false
+    @State private var selectedForInstall = Set<String>()
+
+    /// Packages currently queued for bulk install (not already installed).
+    private var selectedPackages: [BrewPackage] {
+        viewModel.searchResults.filter { selectedForInstall.contains($0.name) }
+    }
 
     var body: some View {
         @Bindable var vm = viewModel
@@ -17,8 +24,24 @@ struct SearchView: View {
         VStack(spacing: 0) {
             // Header
             VStack(alignment: .leading, spacing: 16) {
-                Text("Search Packages")
-                    .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                HStack {
+                    Text("Search Packages")
+                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                    Spacer()
+                    // Show Select button only when there are results
+                    if !viewModel.searchResults.isEmpty {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                isSelectMode.toggle()
+                                if !isSelectMode { selectedForInstall.removeAll() }
+                            }
+                        } label: {
+                            Text(isSelectMode ? "Cancel" : "Select")
+                                .font(.callout.weight(.medium))
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
 
                 // Search bar
                 HStack(spacing: 12) {
@@ -92,9 +115,39 @@ struct SearchView: View {
             } else if viewModel.searchResults.isEmpty {
                 PopularSuggestionsView()
             } else {
+                // Bulk install action bar
+                if isSelectMode && !selectedForInstall.isEmpty {
+                    HStack(spacing: 12) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.blue)
+                        Text("\(selectedForInstall.count) selected")
+                            .font(.callout.weight(.medium))
+                        Spacer()
+                        Button {
+                            viewModel.bulkInstallFromSearch(selectedPackages)
+                            isSelectMode = false
+                            selectedForInstall.removeAll()
+                        } label: {
+                            Label("Install \(selectedForInstall.count)", systemImage: "arrow.down.circle.fill")
+                                .font(.callout.weight(.semibold))
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .disabled(viewModel.isOperationRunning)
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 10)
+                    .background(.blue.opacity(0.07))
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
                 List {
                     ForEach(viewModel.searchResults) { pkg in
-                        SearchResultRow(package: pkg)
+                        SearchResultRow(
+                            package: pkg,
+                            selectionBinding: isSelectMode && !viewModel.installedPackages.contains { $0.name == pkg.name }
+                                ? $selectedForInstall : nil
+                        )
                     }
                 }
                 .listStyle(.inset)
@@ -239,6 +292,8 @@ struct PopularSuggestionsView: View {
 
 struct SearchResultRow: View {
     let package: BrewPackage
+    /// When non-nil, the row is in selection mode and shows a checkbox instead of action buttons.
+    var selectionBinding: Binding<Set<String>>? = nil
     @Environment(AppViewModel.self) private var viewModel
     @State private var isHovered = false
 
@@ -246,8 +301,28 @@ struct SearchResultRow: View {
         viewModel.installedPackages.contains { $0.name == package.name }
     }
 
+    private var isSelected: Bool {
+        selectionBinding?.wrappedValue.contains(package.name) ?? false
+    }
+
     var body: some View {
         HStack(spacing: 12) {
+            // Checkbox in select mode
+            if let binding = selectionBinding {
+                Button {
+                    if binding.wrappedValue.contains(package.name) {
+                        binding.wrappedValue.remove(package.name)
+                    } else {
+                        binding.wrappedValue.insert(package.name)
+                    }
+                } label: {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.title3)
+                        .foregroundStyle(isSelected ? AnyShapeStyle(Color.blue) : AnyShapeStyle(.quaternary))
+                }
+                .buttonStyle(.plain)
+            }
+
             ZStack {
                 RoundedRectangle(cornerRadius: 10)
                     .fill(
@@ -292,29 +367,31 @@ struct SearchResultRow: View {
                     .foregroundStyle(.tertiary)
             }
 
-            if isInstalled {
-                Button(role: .destructive) {
-                    viewModel.uninstall(package)
-                } label: {
-                    Label("Uninstall", systemImage: "trash")
-                        .font(.caption.weight(.medium))
+            if selectionBinding == nil {
+                if isInstalled {
+                    Button(role: .destructive) {
+                        viewModel.uninstall(package)
+                    } label: {
+                        Label("Uninstall", systemImage: "trash")
+                            .font(.caption.weight(.medium))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(viewModel.isOperationRunning)
+                } else {
+                    Button {
+                        viewModel.install(package)
+                    } label: {
+                        Label("Install", systemImage: "plus.circle.fill")
+                            .font(.caption.weight(.medium))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .tint(
+                        LinearGradient(colors: [.blue, .indigo], startPoint: .leading, endPoint: .trailing)
+                    )
+                    .disabled(viewModel.isOperationRunning)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .disabled(viewModel.isOperationRunning)
-            } else {
-                Button {
-                    viewModel.install(package)
-                } label: {
-                    Label("Install", systemImage: "plus.circle.fill")
-                        .font(.caption.weight(.medium))
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .tint(
-                    LinearGradient(colors: [.blue, .indigo], startPoint: .leading, endPoint: .trailing)
-                )
-                .disabled(viewModel.isOperationRunning)
             }
         }
         .padding(.vertical, 4)

@@ -27,15 +27,25 @@ struct UpgradesView: View {
                         }
                     } else {
                         HStack(spacing: 6) {
-                            Text("\(viewModel.outdatedPackages.count)")
+                            Text("\(viewModel.upgradablePackages.count)")
                                 .font(.subheadline.weight(.bold))
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 2)
                                 .background(Capsule().fill(.orange.gradient))
-                            Text("packages can be upgraded")
+                            Text("can be upgraded")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
+                            if viewModel.pinnedOutdatedCount > 0 {
+                                Text("·")
+                                    .foregroundStyle(.quaternary)
+                                Image(systemName: "pin.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(.blue)
+                                Text("\(viewModel.pinnedOutdatedCount) pinned")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                 }
@@ -55,13 +65,13 @@ struct UpgradesView: View {
                     .tint(.secondary)
                     .disabled(viewModel.isOperationRunning)
 
-                    if !viewModel.outdatedPackages.isEmpty {
+                    if !viewModel.upgradablePackages.isEmpty {
                         Button {
                             viewModel.upgradeAll()
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: "arrow.up.circle.fill")
-                                Text("Upgrade All")
+                                Text("Upgrade All (\(viewModel.upgradablePackages.count))")
                             }
                             .font(.callout.weight(.semibold))
                         }
@@ -134,8 +144,12 @@ struct UpgradePackageRow: View {
         return package.homepage
     }
 
-    private var hasGitHubHomepage: Bool {
-        homepage.contains("github.com")
+    private var hasGitHubHomepage: Bool { homepage.contains("github.com") }
+
+    /// True when this formula is pinned — brew will silently skip it during `upgrade --all`.
+    private var isPinned: Bool {
+        guard package.type == .formula else { return false }
+        return viewModel.installedPackages.first { $0.name == package.name }?.isPinned ?? false
     }
 
     var body: some View {
@@ -146,16 +160,19 @@ struct UpgradePackageRow: View {
                     RoundedRectangle(cornerRadius: 10)
                         .fill(
                             LinearGradient(
-                                colors: [.orange.opacity(0.2), .yellow.opacity(0.1)],
+                                colors: isPinned
+                                    ? [.blue.opacity(0.15), .indigo.opacity(0.1)]
+                                    : [.orange.opacity(0.2), .yellow.opacity(0.1)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
                         .frame(width: 36, height: 36)
-                    Image(systemName: "arrow.up.circle.fill")
+                    Image(systemName: isPinned ? "pin.fill" : "arrow.up.circle.fill")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(
-                            LinearGradient(colors: [.orange, .yellow], startPoint: .top, endPoint: .bottom)
+                        .foregroundStyle(isPinned
+                            ? LinearGradient(colors: [.blue, .indigo], startPoint: .top, endPoint: .bottom)
+                            : LinearGradient(colors: [.orange, .yellow], startPoint: .top, endPoint: .bottom)
                         )
                 }
 
@@ -163,7 +180,16 @@ struct UpgradePackageRow: View {
                     HStack(spacing: 6) {
                         Text(package.name)
                             .font(.body.weight(.semibold))
+                            .foregroundStyle(isPinned ? .secondary : .primary)
                         TypeBadge(type: package.type)
+                        if isPinned {
+                            Text("pinned")
+                                .font(.system(.caption2, design: .rounded, weight: .bold))
+                                .foregroundStyle(.blue)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(.blue.opacity(0.1)))
+                        }
                     }
 
                     HStack(spacing: 6) {
@@ -171,7 +197,8 @@ struct UpgradePackageRow: View {
                             .font(.system(.caption, design: .monospaced))
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(RoundedRectangle(cornerRadius: 4).fill(.red.opacity(0.1)))
+                            .background(RoundedRectangle(cornerRadius: 4)
+                                .fill(isPinned ? Color.secondary.opacity(0.08) : Color.red.opacity(0.1)))
 
                         Image(systemName: "arrow.right")
                             .font(.caption2)
@@ -181,8 +208,10 @@ struct UpgradePackageRow: View {
                             .font(.system(.caption, design: .monospaced))
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(RoundedRectangle(cornerRadius: 4).fill(.green.opacity(0.1)))
+                            .background(RoundedRectangle(cornerRadius: 4)
+                                .fill(isPinned ? Color.secondary.opacity(0.08) : Color.green.opacity(0.1)))
                     }
+                    .opacity(isPinned ? 0.6 : 1)
                 }
 
                 Spacer()
@@ -206,15 +235,26 @@ struct UpgradePackageRow: View {
                     .help("Release Notes")
                 }
 
-                Button {
-                    viewModel.upgrade(package)
-                } label: {
-                    Label("Upgrade", systemImage: "arrow.up.circle")
+                if isPinned {
+                    Text("Won't upgrade")
                         .font(.caption.weight(.medium))
+                        .foregroundStyle(.blue.opacity(0.7))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Capsule().fill(.blue.opacity(0.08)))
+                        .help("This formula is pinned. Use Unpin in the package detail to allow upgrades.")
+                } else {
+                    Button {
+                        viewModel.upgrade(package)
+                    } label: {
+                        Label("Upgrade", systemImage: "arrow.up.circle")
+                            .font(.caption.weight(.medium))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .tint(.orange)
+                    .disabled(viewModel.isOperationRunning)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .tint(.orange)
             }
             .padding(.vertical, 6)
 

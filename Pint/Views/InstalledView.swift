@@ -21,15 +21,33 @@ struct InstalledView: View {
     @State private var selection = Set<String>()
     @State private var sortOrder: InstalledSortOrder = .nameAZ
     @State private var groupByType = false
+    @State private var selectedPackage: BrewPackage?
+
+    /// Always read from installedPackages so detail reflects live state (pin/unpin, etc.).
+    private var liveSelected: BrewPackage? {
+        guard let sel = selectedPackage else { return nil }
+        return viewModel.installedPackages.first { $0.id == sel.id } ?? sel
+    }
 
     private var sortedInstalled: [BrewPackage] {
-        let list = viewModel.filteredInstalled
+        let base = showExplicitOnly
+            ? viewModel.filteredInstalled.filter { $0.installedOnRequest }
+            : viewModel.filteredInstalled
         switch sortOrder {
-        case .nameAZ:       return list
-        case .nameZA:       return list.sorted { $0.name > $1.name }
-        case .outdatedFirst: return list.sorted { $0.isOutdated && !$1.isOutdated }
-        case .formulaeFirst: return list.sorted { $0.type == .formula && $1.type != .formula }
-        case .casksFirst:   return list.sorted { $0.type == .cask && $1.type != .cask }
+        case .nameAZ:        return base
+        case .nameZA:        return base.sorted { $0.name > $1.name }
+        case .outdatedFirst: return base.sorted { $0.isOutdated && !$1.isOutdated }
+        case .formulaeFirst: return base.sorted { $0.type == .formula && $1.type != .formula }
+        case .casksFirst:    return base.sorted { $0.type == .cask   && $1.type != .cask }
+        }
+    }
+
+    @State private var showExplicitOnly = false
+
+    // Derived once per body evaluation — avoids O(n) filter inside a disabled modifier.
+    private var hasSelectedOutdated: Bool {
+        selection.contains { id in
+            viewModel.installedPackages.first { $0.id == id }?.isOutdated == true
         }
     }
 
@@ -69,19 +87,26 @@ struct InstalledView: View {
                             Label("Upgrade", systemImage: "arrow.up.circle")
                         }
                         .buttonStyle(.bordered)
-                        .disabled(viewModel.isOperationRunning || viewModel.installedPackages.filter { selection.contains($0.id) && $0.isOutdated }.isEmpty)
+                        .disabled(viewModel.isOperationRunning || !hasSelectedOutdated)
 
                         Divider().frame(height: 20)
                     }
 
-                    FilterChip(label: "All", isSelected: viewModel.installedFilter == nil) {
+                    FilterChip(label: "All", isSelected: viewModel.installedFilter == nil && !showExplicitOnly) {
                         viewModel.installedFilter = nil
+                        showExplicitOnly = false
                     }
                     FilterChip(label: "Formulae", isSelected: viewModel.installedFilter == .formula, color: .green) {
                         viewModel.installedFilter = .formula
+                        showExplicitOnly = false
                     }
                     FilterChip(label: "Casks", isSelected: viewModel.installedFilter == .cask, color: .purple) {
                         viewModel.installedFilter = .cask
+                        showExplicitOnly = false
+                    }
+                    FilterChip(label: "Explicit", isSelected: showExplicitOnly, color: .blue) {
+                        viewModel.installedFilter = nil
+                        showExplicitOnly = true
                     }
 
                     Divider().frame(height: 20)
@@ -154,31 +179,76 @@ struct InstalledView: View {
                 }
                 Spacer()
             } else {
-                List(selection: $selection) {
-                    if groupByType {
-                        let formulae = sortedInstalled.filter { $0.type == .formula }
-                        let casks    = sortedInstalled.filter { $0.type == .cask }
-                        if !formulae.isEmpty {
-                            Section("Formulae (\(formulae.count))") {
-                                ForEach(formulae) { pkg in
-                                    InstalledPackageRow(package: pkg).tag(pkg.id)
+                HStack(spacing: 0) {
+                    // List pane — narrows when a detail panel is open
+                    List(selection: $selection) {
+                        if groupByType {
+                            // Capture once — sortedInstalled is O(n log n) and must not be called twice.
+                            let sorted   = sortedInstalled
+                            let formulae = sorted.filter { $0.type == .formula }
+                            let casks    = sorted.filter { $0.type == .cask }
+                            if !formulae.isEmpty {
+                                Section("Formulae (\(formulae.count))") {
+                                    ForEach(formulae) { pkg in
+                                        InstalledPackageRow(
+                                            package: pkg,
+                                            onSelect: { selectedPackage = pkg },
+                                            isSelected: selectedPackage?.id == pkg.id
+                                        ).tag(pkg.id)
+                                    }
                                 }
                             }
-                        }
-                        if !casks.isEmpty {
-                            Section("Casks (\(casks.count))") {
-                                ForEach(casks) { pkg in
-                                    InstalledPackageRow(package: pkg).tag(pkg.id)
+                            if !casks.isEmpty {
+                                Section("Casks (\(casks.count))") {
+                                    ForEach(casks) { pkg in
+                                        InstalledPackageRow(
+                                            package: pkg,
+                                            onSelect: { selectedPackage = pkg },
+                                            isSelected: selectedPackage?.id == pkg.id
+                                        ).tag(pkg.id)
+                                    }
                                 }
                             }
-                        }
-                    } else {
-                        ForEach(sortedInstalled) { pkg in
-                            InstalledPackageRow(package: pkg).tag(pkg.id)
+                        } else {
+                            ForEach(sortedInstalled) { pkg in
+                                InstalledPackageRow(
+                                    package: pkg,
+                                    onSelect: { selectedPackage = pkg },
+                                    isSelected: selectedPackage?.id == pkg.id
+                                ).tag(pkg.id)
+                            }
                         }
                     }
+                    .listStyle(.inset)
+                    .frame(maxWidth: liveSelected != nil ? 300 : .infinity)
+
+                    // Detail pane — shown when a package is selected
+                    if let pkg = liveSelected {
+                        Divider()
+                        VStack(spacing: 0) {
+                            HStack {
+                                Spacer()
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        selectedPackage = nil
+                                    }
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundStyle(.secondary)
+                                        .font(.title3)
+                                }
+                                .buttonStyle(.plain)
+                                .padding(12)
+                            }
+                            Divider()
+                            PackageDetailView(package: pkg)
+                                .id(pkg.name)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                    }
                 }
-                .listStyle(.inset)
+                .animation(.easeInOut(duration: 0.2), value: liveSelected != nil)
             }
         }
     }
@@ -213,8 +283,19 @@ struct FilterChip: View {
 
 // MARK: - Installed Package Row
 
+private let formulaGradient = LinearGradient(
+    colors: [.green.opacity(0.2), .mint.opacity(0.1)],
+    startPoint: .topLeading, endPoint: .bottomTrailing
+)
+private let caskGradient = LinearGradient(
+    colors: [.purple.opacity(0.2), .indigo.opacity(0.1)],
+    startPoint: .topLeading, endPoint: .bottomTrailing
+)
+
 struct InstalledPackageRow: View {
     let package: BrewPackage
+    var onSelect: (() -> Void)? = nil
+    var isSelected: Bool = false
     @Environment(AppViewModel.self) private var viewModel
     @State private var isHovered = false
 
@@ -222,15 +303,7 @@ struct InstalledPackageRow: View {
         HStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(
-                        LinearGradient(
-                            colors: package.type == .formula
-                                ? [.green.opacity(0.2), .mint.opacity(0.1)]
-                                : [.purple.opacity(0.2), .indigo.opacity(0.1)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .fill(package.type == .formula ? formulaGradient : caskGradient)
                     .frame(width: 36, height: 36)
                 Image(systemName: package.type == .formula ? "terminal.fill" : "macwindow")
                     .font(.system(size: 14, weight: .semibold))
@@ -241,10 +314,24 @@ struct InstalledPackageRow: View {
                 HStack(spacing: 6) {
                     Text(package.name)
                         .font(.body.weight(.semibold))
+                    if package.isPinned {
+                        Image(systemName: "pin.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.blue)
+                            .help("Pinned — will not be upgraded automatically")
+                    }
                     if package.isOutdated {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.caption)
                             .foregroundStyle(.orange)
+                    }
+                    if !package.installedOnRequest {
+                        Text("dependency")
+                            .font(.system(.caption2, design: .rounded, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Capsule().fill(.quaternary))
                     }
                 }
                 HStack(spacing: 6) {
@@ -296,9 +383,16 @@ struct InstalledPackageRow: View {
         .padding(.horizontal, 6)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(isHovered ? AnyShapeStyle(.quaternary.opacity(0.5)) : AnyShapeStyle(.clear))
+                .fill(
+                    isSelected
+                        ? AnyShapeStyle(Color.accentColor.opacity(0.12))
+                        : isHovered ? AnyShapeStyle(.quaternary.opacity(0.5)) : AnyShapeStyle(.clear)
+                )
         )
         .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .animation(.easeInOut(duration: 0.1), value: isSelected)
         .onHover { hovering in isHovered = hovering }
+        .contentShape(Rectangle())
+        .onTapGesture { onSelect?() }
     }
 }

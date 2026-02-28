@@ -11,9 +11,9 @@ import Foundation
 /// The readabilityHandler callbacks are serialised per-handle, so concurrent
 /// mutation does not occur in practice.
 final class UnsafeMutableSendableBox<T>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var _value: T
-    var value: T {
+    private nonisolated let lock = NSLock()
+    nonisolated(unsafe) private var _value: T
+    nonisolated var value: T {
         get {
             lock.lock()
             defer { lock.unlock() }
@@ -26,9 +26,9 @@ final class UnsafeMutableSendableBox<T>: @unchecked Sendable {
         }
     }
     nonisolated init(_ value: T) { self._value = value }
-    
+
     /// Atomically mutate the value in place.
-    func mutate(_ transform: (inout T) -> Void) {
+    nonisolated func mutate(_ transform: (inout T) -> Void) {
         lock.lock()
         transform(&_value)
         lock.unlock()
@@ -77,9 +77,32 @@ actor ShellExecutor {
         return components.joined(separator: ":")
     }
 
-    /// Quick, non-throwing check for whether brew is available.
+    /// Quick, non-throwing check for whether brew is available at a known standard path.
     static func isBrewInstalled() -> Bool {
         return knownPaths.contains { FileManager.default.fileExists(atPath: $0) }
+    }
+
+    /// Fallback: try to locate brew via the user's login shell (zsh then bash).
+    /// Returns the resolved path if found outside the standard locations, otherwise nil.
+    static func findBrewViaShell() -> String? {
+        let shells = ["/bin/zsh", "/bin/bash"]
+        for shell in shells where FileManager.default.fileExists(atPath: shell) {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: shell)
+            process.arguments = ["-l", "-c", "which brew 2>/dev/null"]
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = Pipe()
+            try? process.run()
+            process.waitUntilExit()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            let path = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if !path.isEmpty && FileManager.default.fileExists(atPath: path) {
+                return path
+            }
+        }
+        return nil
     }
 
     /// Run a brew command and return the full output when complete.

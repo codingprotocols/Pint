@@ -81,7 +81,7 @@ struct ContentView: View {
         }
         .overlay {
             if !viewModel.brewAvailable {
-                BrewNotFoundView {
+                BrewNotFoundView(reason: viewModel.brewNotFoundReason) {
                     viewModel.loadAll()
                 }
             }
@@ -126,124 +126,222 @@ struct BackgroundErrorBanner: View {
     }
 }
 
-/// Overlay shown when Homebrew is not installed — includes installation instructions.
+/// Overlay shown when Homebrew cannot be located — shows tailored instructions
+/// for either a fresh install or a PATH configuration issue.
 struct BrewNotFoundView: View {
-    var onRetry: () -> Void
-
-    private let installCommand = """
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    """
-
-    @State private var copied = false
+    let reason: BrewNotFoundReason
+    let onRetry: () -> Void
 
     var body: some View {
         ZStack {
-            Color(.windowBackgroundColor)
-                .ignoresSafeArea()
+            Color(.windowBackgroundColor).ignoresSafeArea()
 
-            VStack(spacing: 24) {
-                // Icon
-                Image(systemName: "mug.fill")
-                    .font(.system(size: 64))
-                    .foregroundStyle(.tertiary)
+            ScrollView {
+                VStack(spacing: 28) {
+                    // Icon + title
+                    VStack(spacing: 12) {
+                        Image(systemName: reason == .notInstalled ? "mug.fill" : "exclamationmark.triangle.fill")
+                            .font(.system(size: 56))
+                            .foregroundStyle(reason == .notInstalled ? Color.secondary : Color.orange)
 
-                // Title
-                Text("Homebrew Not Found")
-                    .font(.largeTitle.bold())
+                        Text(reason == .notInstalled ? "Homebrew Not Found" : "Homebrew PATH Not Configured")
+                            .font(.largeTitle.bold())
 
-                Text("Pint requires Homebrew to manage packages.\nFollow the steps below to install it.")
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                // Instruction card
-                VStack(alignment: .leading, spacing: 16) {
-                    Label("How to Install", systemImage: "terminal.fill")
-                        .font(.headline)
-
-                    // Step 1
-                    HStack(alignment: .top, spacing: 10) {
-                        Text("1.")
-                            .fontWeight(.bold)
+                        Text(reason == .notInstalled
+                             ? "Pint requires Homebrew to manage packages.\nFollow the steps below to install it."
+                             : "Homebrew is installed but not at a standard location.\nFollow the steps below to configure your shell PATH.")
+                            .multilineTextAlignment(.center)
                             .foregroundStyle(.secondary)
-                        Text("Open **Terminal** (press ⌘ + Space, type \"Terminal\", hit Enter)")
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .font(.callout)
 
-                    // Step 2 — the command
-                    HStack(alignment: .top, spacing: 10) {
-                        Text("2.")
-                            .fontWeight(.bold)
-                            .foregroundStyle(.secondary)
-                        Text("Paste and run this command:")
+                    // Instruction card
+                    switch reason {
+                    case .notInstalled:
+                        InstallInstructionsCard()
+                    case .pathNotConfigured(let brewPath):
+                        PathInstructionsCard(brewPath: brewPath)
                     }
-                    .font(.callout)
 
-                    // Command block
-                    HStack(spacing: 0) {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            Text(installCommand)
-                                .font(.system(.caption, design: .monospaced))
-                                .textSelection(.enabled)
-                                .padding(10)
-                        }
-
-                        Divider()
-
-                        Button {
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(installCommand, forType: .string)
-                            copied = true
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                copied = false
+                    // Actions
+                    HStack(spacing: 16) {
+                        if reason == .notInstalled {
+                            Link(destination: URL(string: "https://brew.sh")!) {
+                                Label("brew.sh", systemImage: "safari")
                             }
-                        } label: {
-                            Image(systemName: copied ? "checkmark" : "doc.on.doc")
-                                .frame(width: 36, height: 36)
-                                .contentTransition(.symbolEffect(.replace))
+                            .foregroundStyle(.blue)
                         }
-                        .buttonStyle(.plain)
-                        .help(copied ? "Copied!" : "Copy to clipboard")
-                    }
-                    .background(.quinary)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(.quaternary, lineWidth: 1)
-                    )
 
-                    // Step 3
-                    HStack(alignment: .top, spacing: 10) {
-                        Text("3.")
-                            .fontWeight(.bold)
-                            .foregroundStyle(.secondary)
-                        Text("Follow the on-screen prompts, then click **Retry** below.")
+                        Button { onRetry() } label: {
+                            Label("Retry", systemImage: "arrow.clockwise")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
                     }
-                    .font(.callout)
                 }
-                .padding(20)
-                .frame(maxWidth: 560, alignment: .leading)
-                .background(.background)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
+                .padding(40)
+            }
+        }
+    }
+}
 
-                // Actions
-                HStack(spacing: 16) {
-                    Link(destination: URL(string: "https://brew.sh")!) {
-                        Label("brew.sh", systemImage: "safari")
-                    }
-                    .foregroundStyle(.blue)
+// MARK: - Install Instructions
 
-                    Button {
-                        onRetry()
-                    } label: {
-                        Label("Retry", systemImage: "arrow.clockwise")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
+private struct InstallInstructionsCard: View {
+    private let installCommand =
+        "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+
+    // After Homebrew installs, the user must run shellenv to configure PATH.
+    // The correct path depends on the chip architecture.
+    #if arch(arm64)
+    private let shellenvCommand = "eval \"$(/opt/homebrew/bin/brew shellenv)\""
+    private let shellenvPersist = "echo 'eval \"$(/opt/homebrew/bin/brew shellenv)\"' >> ~/.zprofile"
+    private let chipNote = "Apple Silicon (M1 and later)"
+    #else
+    private let shellenvCommand = "eval \"$(/usr/local/bin/brew shellenv)\""
+    private let shellenvPersist = "echo 'eval \"$(/usr/local/bin/brew shellenv)\"' >> ~/.zprofile"
+    private let chipNote = "Intel Mac"
+    #endif
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Label("How to Install Homebrew", systemImage: "terminal.fill")
+                .font(.headline)
+
+            BrewStep(number: "1", text: "Open **Terminal**  (⌘ Space → type \"Terminal\" → Return)")
+
+            BrewStep(number: "2", text: "Paste and run the install script:")
+            CopyableCommandBlock(command: installCommand)
+
+            BrewStep(number: "3", text: "Follow all on-screen prompts. When the installer finishes it will print a **\"Next steps\"** section.")
+
+            BrewStep(number: "4", text: "Configure your shell PATH **(\(chipNote))**. Run this in the same Terminal window:")
+            CopyableCommandBlock(command: shellenvPersist)
+
+            BrewStep(number: "5", text: "Open a **new** Terminal window and verify the install:")
+            CopyableCommandBlock(command: "brew --version")
+
+            BrewStep(number: "6", text: "Click **Retry** below to launch Pint.")
+        }
+        .padding(20)
+        .frame(maxWidth: 580, alignment: .leading)
+        .background(.background)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.07), radius: 8, y: 2)
+    }
+}
+
+// MARK: - PATH Instructions
+
+private struct PathInstructionsCard: View {
+    let brewPath: String
+
+    // Derive the directory containing the brew binary for shellenv.
+    private var brewPrefix: String {
+        // /some/path/bin/brew → /some/path/bin
+        (brewPath as NSString).deletingLastPathComponent
+    }
+
+    private var shellenvPersist: String {
+        "echo 'eval \"$(\(brewPath) shellenv)\"' >> ~/.zprofile"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Label("How to Configure Homebrew PATH", systemImage: "terminal.fill")
+                .font(.headline)
+
+            // Show where brew was found
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Homebrew found at a non-standard path:")
+                        .font(.callout)
+                    Text(brewPath)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
                 }
             }
-            .padding(40)
+            .padding(12)
+            .background(.green.opacity(0.07))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+
+            Text("Pint looks for brew at `/opt/homebrew/bin/brew` (Apple Silicon) or `/usr/local/bin/brew` (Intel). Your brew is at a different location. You need to add it to your shell profile so all tools — including Pint — can find it.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            BrewStep(number: "1", text: "Open **Terminal**  (⌘ Space → type \"Terminal\" → Return)")
+
+            BrewStep(number: "2", text: "Add Homebrew to your **zsh** profile (default shell on macOS):")
+            CopyableCommandBlock(command: shellenvPersist)
+
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "info.circle").foregroundStyle(.blue).font(.caption)
+                Text("Using **bash** instead? Replace `~/.zprofile` with `~/.bash_profile`.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            BrewStep(number: "3", text: "Apply the changes to the current session:")
+            CopyableCommandBlock(command: "source ~/.zprofile")
+
+            BrewStep(number: "4", text: "Click **Retry** below.")
         }
+        .padding(20)
+        .frame(maxWidth: 580, alignment: .leading)
+        .background(.background)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.07), radius: 8, y: 2)
+    }
+}
+
+// MARK: - Shared sub-components
+
+private struct BrewStep: View {
+    let number: String
+    let text: LocalizedStringKey
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Text("\(number).")
+                .fontWeight(.bold)
+                .foregroundStyle(.secondary)
+                .frame(width: 18, alignment: .trailing)
+            Text(text).font(.callout)
+        }
+    }
+}
+
+private struct CopyableCommandBlock: View {
+    let command: String
+    @State private var copied = false
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                Text(command)
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+                    .padding(10)
+            }
+
+            Divider()
+
+            Button {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(command, forType: .string)
+                copied = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { copied = false }
+            } label: {
+                Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                    .frame(width: 36, height: 36)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.plain)
+            .help(copied ? "Copied!" : "Copy to clipboard")
+        }
+        .background(.quinary)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary, lineWidth: 1))
     }
 }

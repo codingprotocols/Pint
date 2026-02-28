@@ -25,6 +25,8 @@ struct BrewPackage: Identifiable, Hashable, Sendable {
     var currentVersion: String?
     var latestVersion: String?
     var installedOnRequest: Bool
+    var isPinned: Bool
+    var caveats: String?
     var isFavorite: Bool
     var notes: String
 
@@ -37,7 +39,9 @@ struct BrewPackage: Identifiable, Hashable, Sendable {
         isOutdated: Bool = false,
         currentVersion: String? = nil,
         latestVersion: String? = nil,
-        installedOnRequest: Bool = true
+        installedOnRequest: Bool = true,
+        isPinned: Bool = false,
+        caveats: String? = nil
     ) {
         self.id = "\(type.rawValue)-\(name)"
         self.name = name
@@ -49,6 +53,8 @@ struct BrewPackage: Identifiable, Hashable, Sendable {
         self.currentVersion = currentVersion
         self.latestVersion = latestVersion
         self.installedOnRequest = installedOnRequest
+        self.isPinned = isPinned
+        self.caveats = caveats
         self.isFavorite = false
         self.notes = ""
     }

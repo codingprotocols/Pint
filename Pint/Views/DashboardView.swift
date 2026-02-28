@@ -37,6 +37,34 @@ struct DashboardView: View {
                         .tint(.secondary)
                         .disabled(viewModel.isOperationRunning)
 
+                        Button {
+                            viewModel.autoRemove()
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "trash.slash.fill")
+                                Text("Autoremove")
+                            }
+                            .font(.callout.weight(.medium))
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.secondary)
+                        .disabled(viewModel.isOperationRunning)
+                        .help("Remove dependencies that are no longer needed by any installed package")
+
+                        Button {
+                            viewModel.cleanupCache()
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "sparkles")
+                                Text("Cleanup")
+                            }
+                            .font(.callout.weight(.medium))
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.secondary)
+                        .disabled(viewModel.isOperationRunning)
+                        .help("Remove old versions and cached downloads to free up disk space")
+
                         if !viewModel.outdatedPackages.isEmpty {
                             Button {
                                 viewModel.upgradeAll()

@@ -54,13 +54,14 @@ actor BrewAPIClient: BrewAPIClientProtocol {
         let desc: String?
         let homepage: String?
         let versions: Versions?
+        let caveats: String?
 
         struct Versions: Decodable {
             let stable: String?
         }
 
         enum CodingKeys: String, CodingKey {
-            case name, desc, homepage, versions
+            case name, desc, homepage, versions, caveats
             case fullName = "full_name"
         }
 
@@ -70,7 +71,8 @@ actor BrewAPIClient: BrewAPIClientProtocol {
                 version: versions?.stable ?? "",
                 description: desc ?? "",
                 homepage: homepage ?? "",
-                type: .formula
+                type: .formula,
+                caveats: caveats.flatMap { $0.isEmpty ? nil : $0 }
             )
         }
     }
@@ -157,7 +159,7 @@ actor BrewAPIClient: BrewAPIClientProtocol {
 
     /// Registers a one-time memory pressure observer that clears caches in proportion to severity.
     /// `.warning` → release notes only; `.critical` → everything.
-    private nonisolated(unsafe) static let memoryPressureSource: DispatchSourceMemoryPressure = {
+    private nonisolated static let memoryPressureSource: DispatchSourceMemoryPressure = {
         let source = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
         source.setEventHandler {
             let event = source.data
@@ -272,12 +274,6 @@ actor BrewAPIClient: BrewAPIClientProtocol {
             var request = URLRequest(url: url)
             request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
             request.timeoutInterval = 10
-
-            // Attach GitHub token if configured — raises limit from 60 to 5 000 req/hr.
-            if let token = UserDefaults.standard.string(forKey: AppSettingsKeys.githubToken),
-               !token.isEmpty {
-                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            }
 
             let (data, response) = try await session.data(for: request)
 

@@ -88,6 +88,26 @@ struct PackageDetailView: View {
                             link: homepage
                         )
                     }
+
+                    // Show install origin — only meaningful for formulae
+                    if package.type == .formula {
+                        if !package.installedOnRequest {
+                            InfoCard(
+                                title: "Installed As",
+                                value: "Dependency",
+                                icon: "arrow.triangle.branch",
+                                color: .secondary
+                            )
+                        }
+                        if package.isPinned {
+                            InfoCard(
+                                title: "Status",
+                                value: "Pinned",
+                                icon: "pin.fill",
+                                color: .blue
+                            )
+                        }
+                    }
                 }
 
                 Divider()
@@ -136,6 +156,27 @@ struct PackageDetailView: View {
                                 .font(.callout.weight(.medium))
                             }
                             .buttonStyle(.bordered)
+
+                            // Pin / Unpin — formulae only; casks do not support pinning
+                            let livePackage = viewModel.installedPackages.first { $0.id == package.id } ?? package
+                            Button {
+                                if livePackage.isPinned {
+                                    viewModel.unpin(livePackage)
+                                } else {
+                                    viewModel.pin(livePackage)
+                                }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: livePackage.isPinned ? "pin.slash" : "pin.fill")
+                                    Text(livePackage.isPinned ? "Unpin" : "Pin")
+                                }
+                                .font(.callout.weight(.medium))
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(livePackage.isPinned ? .secondary : .blue)
+                            .help(livePackage.isPinned
+                                  ? "Allow upgrades for this formula"
+                                  : "Prevent this formula from being upgraded")
                         }
                     } else {
                         Button {
@@ -179,6 +220,28 @@ struct PackageDetailView: View {
                     )
                 } else if let release = releaseNote {
                     ReleaseNoteSection(release: release)
+                }
+
+                // Caveats Section — post-install warnings printed by brew
+                if let caveats = detailedPackage?.caveats ?? package.caveats, !caveats.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Label("Caveats", systemImage: "exclamationmark.triangle.fill")
+                            .font(.headline)
+                            .foregroundStyle(.orange)
+
+                        Text(caveats)
+                            .font(.system(.callout, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(.orange.opacity(0.06))
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(.orange.opacity(0.2), lineWidth: 1))
+                    )
                 }
 
                 Divider()

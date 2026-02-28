@@ -45,7 +45,26 @@ enum NavigationItem: String, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - Brew Not Found Reason
+
+/// Why Homebrew could not be located at a known path.
+enum BrewNotFoundReason: Equatable {
+    /// No brew binary found anywhere — Homebrew is not installed.
+    case notInstalled
+    /// Brew was found via the user's shell PATH but not at the standard locations
+    /// Pint checks (`/opt/homebrew/bin/brew` or `/usr/local/bin/brew`).
+    case pathNotConfigured(brewPath: String)
+}
+
 // MARK: - OperationRunner
+
+/// Mutable state used only within OperationRunner's output callback.
+/// Defined at file scope so it has no actor isolation. Access is serial
+/// (single unstructured Task, single streaming callback), making @unchecked Sendable safe.
+private final class OutputThrottler: @unchecked Sendable {
+    nonisolated(unsafe) var buffer = ""
+    nonisolated(unsafe) var lastUpdate = Date.distantPast
+}
 
 /// Owns the full lifecycle of a single brew operation: output buffering, history, cancellation.
 /// Extracted from AppViewModel to give it a focused responsibility and enable independent testing.
@@ -78,16 +97,15 @@ final class OperationRunner {
         let capturedSelf = self
 
         runningTask = Task {
-            let outputBuffer = UnsafeMutableSendableBox("")
-            var lastUpdate = Date.distantPast
+            let throttler = OutputThrottler()
 
             do {
                 try await action { text in
-                    outputBuffer.value += text
+                    throttler.buffer += text
                     // Throttle UI updates to ~10 Hz to avoid flooding the Main Actor.
                     let now = Date()
-                    if now.timeIntervalSince(lastUpdate) > 0.1 {
-                        let chunk = outputBuffer.value
+                    if now.timeIntervalSince(throttler.lastUpdate) > 0.1 {
+                        let chunk = throttler.buffer
                         Task { @MainActor in
                             capturedSelf.activeOperation?.output += chunk
                             if let out = capturedSelf.activeOperation?.output,
@@ -96,13 +114,13 @@ final class OperationRunner {
                                     "… (output trimmed)\n" + String(out.suffix(OperationRunner.maxOutputSize))
                             }
                         }
-                        outputBuffer.value = ""
-                        lastUpdate = now
+                        throttler.buffer = ""
+                        throttler.lastUpdate = now
                     }
                 }
 
                 // Final flush of any buffered output.
-                let finalChunk = outputBuffer.value
+                let finalChunk = throttler.buffer
                 await MainActor.run {
                     if !finalChunk.isEmpty { capturedSelf.activeOperation?.output += finalChunk }
                     capturedSelf.activeOperation?.isComplete = true
@@ -203,6 +221,7 @@ final class AppViewModel {
     var taps: [String] = []
 
     var brewAvailable: Bool = true
+    var brewNotFoundReason: BrewNotFoundReason = .notInstalled
     var isLoadingInstalled: Bool = false
     var isLoadingOutdated: Bool = false
     var isSearching: Bool = false
@@ -308,13 +327,29 @@ final class AppViewModel {
     var totalFormulae: Int { installedPackages.filter { $0.type == .formula }.count }
     var totalCasks: Int { installedPackages.filter { $0.type == .cask }.count }
 
+    /// Outdated packages that brew will actually upgrade (pinned formulae are excluded).
+    var upgradablePackages: [BrewPackage] {
+        outdatedPackages.filter { pkg in
+            guard pkg.type == .formula else { return true }
+            return !(installedPackages.first { $0.name == pkg.name }?.isPinned ?? false)
+        }
+    }
+
+    /// Number of outdated formulae that are pinned and will be skipped by `brew upgrade`.
+    var pinnedOutdatedCount: Int { outdatedPackages.count - upgradablePackages.count }
+
     // MARK: - Data Loading
 
     func loadAll() {
         Task {
             guard ShellExecutor.isBrewInstalled() else {
+                // Not at the standard paths — check if brew exists somewhere else via the shell.
+                if let shellPath = ShellExecutor.findBrewViaShell() {
+                    brewNotFoundReason = .pathNotConfigured(brewPath: shellPath)
+                } else {
+                    brewNotFoundReason = .notInstalled
+                }
                 brewAvailable = false
-                showError("Homebrew is not installed. Please install Homebrew from https://brew.sh and relaunch Pint.")
                 return
             }
             brewAvailable = true
@@ -500,17 +535,85 @@ final class AppViewModel {
         }
     }
 
+    /// Install multiple packages from search in one operation.
+    /// Formulae and casks are batched separately; if both types are selected,
+    /// casks are queued as a follow-up after formulae finish.
+    func bulkInstallFromSearch(_ packages: [BrewPackage]) {
+        let formulaeNames = packages.filter { $0.type == .formula }.map { $0.name }
+        let caskNames     = packages.filter { $0.type == .cask    }.map { $0.name }
+
+        if formulaeNames.isEmpty {
+            // Casks only
+            runBrewOperation(command: "install --cask", packageName: caskNames.joined(separator: " ")) { [weak self] onOutput in
+                try await self?.brewService.installMultiple(caskNames, isCask: true, onOutput: onOutput)
+            }
+        } else if caskNames.isEmpty {
+            // Formulae only
+            runBrewOperation(command: "install", packageName: formulaeNames.joined(separator: " ")) { [weak self] onOutput in
+                try await self?.brewService.installMultiple(formulaeNames, isCask: false, onOutput: onOutput)
+            }
+        } else {
+            // Both types — install formulae first, then casks in onComplete
+            runBrewOperation(command: "install", packageName: formulaeNames.joined(separator: " ")) { [weak self] onOutput in
+                try await self?.brewService.installMultiple(formulaeNames, isCask: false, onOutput: onOutput)
+            } onComplete: { [self] in
+                await self.loadInstalled()
+                await MainActor.run {
+                    self.runBrewOperation(command: "install --cask", packageName: caskNames.joined(separator: " ")) { [self] onOutput in
+                        try await self.brewService.installMultiple(caskNames, isCask: true, onOutput: onOutput)
+                    }
+                }
+            }
+        }
+    }
+
+    func autoRemove() {
+        runBrewOperation(command: "autoremove", packageName: "orphaned dependencies") { [weak self] onOutput in
+            try await self?.brewService.autoremove(onOutput: onOutput)
+        } onComplete: { [weak self] in
+            await self?.loadInstalled()
+        }
+    }
+
+    func pin(_ package: BrewPackage) {
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await brewService.pin(package.name)
+                if let idx = installedPackages.firstIndex(where: { $0.id == package.id }) {
+                    installedPackages[idx].isPinned = true
+                }
+            } catch {
+                showError(error.localizedDescription)
+            }
+        }
+    }
+
+    func unpin(_ package: BrewPackage) {
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await brewService.unpin(package.name)
+                if let idx = installedPackages.firstIndex(where: { $0.id == package.id }) {
+                    installedPackages[idx].isPinned = false
+                }
+            } catch {
+                showError(error.localizedDescription)
+            }
+        }
+    }
+
     func updateBrew() {
         runBrewOperation(command: "update", packageName: "Homebrew") { [weak self] onOutput in
             try await self?.brewService.update(onOutput: onOutput)
-        } onComplete: { [weak self] in
+        } onComplete: { [self] in
             let now = Date()
             await MainActor.run {
-                self?.lastBrewUpdateDate = now
+                self.lastBrewUpdateDate = now
+                UserDefaults.standard.set(now.timeIntervalSince1970, forKey: AppSettingsKeys.lastBrewUpdate)
             }
-            UserDefaults.standard.set(now.timeIntervalSince1970, forKey: AppSettingsKeys.lastBrewUpdate)
-            await self?.loadInstalled()
-            await self?.loadOutdated()
+            await self.loadInstalled()
+            await self.loadOutdated()
         }
     }
 
@@ -554,18 +657,18 @@ final class AppViewModel {
             return
         }
 
-        let defaultOnComplete: @Sendable () async -> Void = { [weak self] in
-            await self?.loadInstalled()
-            await self?.loadOutdated()
+        let defaultOnComplete: @Sendable () async -> Void = { [self] in
+            await self.loadInstalled()
+            await self.loadOutdated()
         }
 
         let baseComplete = onComplete ?? defaultOnComplete
 
         // Wrap completion to send a macOS notification after every operation.
-        let wrappedComplete: @Sendable () async -> Void = { [weak self] in
-            let isSuccess = await MainActor.run { self?.runner.activeOperation?.isSuccess ?? true }
+        let wrappedComplete: @Sendable () async -> Void = { [self] in
+            let isSuccess = await MainActor.run { self.runner.activeOperation?.isSuccess ?? true }
             await baseComplete()
-            await self?.sendOperationNotification(command: command, packageName: packageName, isSuccess: isSuccess)
+            await self.sendOperationNotification(command: command, packageName: packageName, isSuccess: isSuccess)
         }
 
         runner.run(
