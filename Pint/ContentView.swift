@@ -52,6 +52,15 @@ struct ContentView: View {
         .onAppear {
             viewModel.loadAll()
         }
+        .overlay(alignment: .top) {
+            if let message = viewModel.backgroundError {
+                BackgroundErrorBanner(message: message) {
+                    viewModel.backgroundError = nil
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .animation(.easeInOut(duration: 0.3), value: viewModel.backgroundError != nil)
+            }
+        }
         .alert("Error", isPresented: $vm.showError) {
             Button("OK") { }
         } message: {
@@ -64,6 +73,43 @@ struct ContentView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Background Error Banner
+
+/// Non-intrusive banner shown when a background update check fails silently.
+/// Does not interrupt the user — dismissible by clicking ✕.
+struct BackgroundErrorBanner: View {
+    let message: String
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+
+            Text("Background check failed: \(message)")
+                .font(.caption)
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+
+            Spacer()
+
+            Button {
+                onDismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial)
+        .overlay(Rectangle().frame(height: 1).foregroundStyle(.orange.opacity(0.4)), alignment: .bottom)
+        .frame(maxWidth: .infinity)
     }
 }
 

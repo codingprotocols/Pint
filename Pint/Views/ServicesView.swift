@@ -85,6 +85,8 @@ struct ServicesView: View {
             }
         }
         .task {
+            // Wire operation guard (3-A) then load.
+            viewModel.operationRunner = appViewModel.runner
             if !appViewModel.isOperationRunning {
                 await viewModel.loadServices()
             }

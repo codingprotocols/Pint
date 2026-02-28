@@ -7,13 +7,16 @@
 
 import Foundation
 
-/// Keys and defaults for user preferences stored via @AppStorage.
+/// Keys and defaults for user preferences stored via @AppStorage / UserDefaults.
 enum AppSettingsKeys {
     static let showMenuBarIcon = "showMenuBarIcon"
     static let launchAtLogin = "launchAtLogin"
     static let updateCheckInterval = "updateCheckInterval"
     static let packageMetadata = "packageMetadata"
     static let operationHistory = "operationHistory"
+    /// Optional GitHub personal access token stored in UserDefaults.
+    /// Raises the GitHub API rate limit from 60 to 5 000 req/hr.
+    static let githubToken = "githubToken"
 }
 
 /// Available intervals for automatic update checking.

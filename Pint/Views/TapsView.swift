@@ -9,12 +9,8 @@ import SwiftUI
 
 struct TapsView: View {
     @Environment(AppViewModel.self) private var viewModel
-    @State private var taps: [String] = []
-    @State private var isLoading = false
     @State private var showAddTap = false
     @State private var newTapName = ""
-
-    private let brewService = BrewService()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -31,7 +27,7 @@ struct TapsView: View {
                 Spacer()
 
                 HStack(spacing: 12) {
-                    if isLoading {
+                    if viewModel.isLoadingTaps {
                         ProgressView()
                             .controlSize(.small)
                     }
@@ -42,21 +38,23 @@ struct TapsView: View {
                         Label("Add Tap", systemImage: "plus")
                     }
                     .buttonStyle(.borderedProminent)
+                    .disabled(viewModel.isOperationRunning)
 
                     Button {
-                        Task { await loadTaps() }
+                        Task { await viewModel.loadTaps() }
                     } label: {
                         Image(systemName: "arrow.clockwise")
                     }
                     .buttonStyle(.bordered)
                     .help("Refresh taps")
+                    .disabled(viewModel.isOperationRunning)
                 }
             }
             .padding()
             .background(.ultraThinMaterial)
 
             // Taps List
-            if taps.isEmpty && !isLoading {
+            if viewModel.taps.isEmpty && !viewModel.isLoadingTaps {
                 ContentUnavailableView(
                     "No Custom Taps",
                     systemImage: "spigot",
@@ -64,7 +62,7 @@ struct TapsView: View {
                 )
             } else {
                 List {
-                    ForEach(taps, id: \.self) { tap in
+                    ForEach(viewModel.taps, id: \.self) { tap in
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(tap)
@@ -80,13 +78,14 @@ struct TapsView: View {
                             Spacer()
 
                             Button(role: .destructive) {
-                                removeTap(tap)
+                                viewModel.removeTap(tap)
                             } label: {
                                 Image(systemName: "trash")
                                     .foregroundStyle(.red)
                             }
                             .buttonStyle(.plain)
                             .help("Untap repository")
+                            .disabled(viewModel.isOperationRunning)
                         }
                         .padding(.vertical, 4)
                     }
@@ -115,61 +114,20 @@ struct TapsView: View {
                     .buttonStyle(.plain)
 
                     Button("Add Tap") {
-                        addTap(newTapName)
+                        viewModel.addTap(newTapName)
                         showAddTap = false
                         newTapName = ""
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(newTapName.isEmpty)
+                    .disabled(newTapName.isEmpty || viewModel.isOperationRunning)
                 }
             }
             .padding()
             .frame(width: 400)
         }
         .task {
-            await loadTaps()
-        }
-    }
-
-    private func loadTaps() async {
-        isLoading = true
-        defer { isLoading = false }
-        do {
-            taps = try await brewService.listTaps()
-        } catch {
-            print("Failed to load taps: \(error)")
-        }
-    }
-
-    private func addTap(_ name: String) {
-        let op = BrewOperation(command: "tap", packageName: name)
-        runOperation(operation: op) { onOutput in
-            try await brewService.addTap(name, onOutput: onOutput)
-            await loadTaps()
-        }
-    }
-
-    private func removeTap(_ name: String) {
-        let op = BrewOperation(command: "untap", packageName: name)
-        runOperation(operation: op) { onOutput in
-            try await brewService.removeTap(name, onOutput: onOutput)
-            await loadTaps()
-        }
-    }
-
-    private func runOperation(operation: BrewOperation, action: @escaping (@escaping @Sendable (String) -> Void) async throws -> Void) {
-        // We reuse the app-wide operation runner by calling viewModel's helper
-        // But since we can't easily access the private helper, we'll just use a simplified version here
-        // or actually, we should probably add these to AppViewModel if they involve operations
-        // For now, let's just trigger it via the existing ViewModel mechanism if possible
-        // Actually, Taps management is infrequent enough that maybe it should be in AppViewModel?
-        // Let's just implement a simple version here for now.
-        Task {
-            do {
-                try await action { _ in }
-                await loadTaps()
-            } catch {
-                print("Operation failed: \(error)")
+            if viewModel.taps.isEmpty {
+                await viewModel.loadTaps()
             }
         }
     }

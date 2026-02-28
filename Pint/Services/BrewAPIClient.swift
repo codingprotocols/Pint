@@ -6,31 +6,117 @@
 //
 
 import Foundation
+import OSLog
+
+// MARK: - Protocol
+
+/// Abstraction over the Homebrew JSON API and GitHub Releases, primarily for testability.
+protocol BrewAPIClientProtocol: Sendable {
+    func search(_ query: String) async throws -> [BrewPackage]
+    func getInfo(_ name: String, type: PackageType) async throws -> BrewPackage
+    /// Returns `nil` when no release notes are available (not a GitHub repo, empty body, API error).
+    /// Returns `nil` without caching on GitHub rate-limit (403/429) so future calls retry.
+    func fetchReleaseNotes(homepage: String) async -> ReleaseNote?
+}
+
+// MARK: - Implementation
 
 /// HTTP client for the Homebrew Formulae JSON API (https://formulae.brew.sh/api/).
 /// Used for search and package info — faster than shelling out to `brew`.
-actor BrewAPIClient {
+actor BrewAPIClient: BrewAPIClientProtocol {
 
     static let shared = BrewAPIClient()
 
+    // Logger is an actor-isolated instance property to avoid @MainActor cross-actor warnings.
+    private let logger = Logger(subsystem: "com.pint", category: "api")
+
     // MARK: - API Endpoints
+    // Marked nonisolated so they can be called from actor-isolated methods without
+    // triggering @MainActor cross-actor access warnings (project uses -default-isolation=MainActor).
 
-    private static let baseURL = "https://formulae.brew.sh/api"
-    private static let formulaListURL = URL(string: "\(baseURL)/formula.json")!
-    private static let caskListURL = URL(string: "\(baseURL)/cask.json")!
+    private nonisolated static let baseURL = "https://formulae.brew.sh/api"
+    private nonisolated static let formulaListURL = URL(string: "\(baseURL)/formula.json")!
+    private nonisolated static let caskListURL = URL(string: "\(baseURL)/cask.json")!
 
-    private static func formulaDetailURL(_ name: String) -> URL {
+    private nonisolated static func formulaDetailURL(_ name: String) -> URL {
         URL(string: "\(baseURL)/formula/\(name).json")!
     }
 
-    private static func caskDetailURL(_ name: String) -> URL {
+    private nonisolated static func caskDetailURL(_ name: String) -> URL {
         URL(string: "\(baseURL)/cask/\(name).json")!
+    }
+
+    // MARK: - Codable Types
+
+    private struct FormulaListItem: Decodable {
+        let name: String
+        let fullName: String?
+        let desc: String?
+        let homepage: String?
+        let versions: Versions?
+
+        struct Versions: Decodable {
+            let stable: String?
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case name, desc, homepage, versions
+            case fullName = "full_name"
+        }
+
+        var asBrewPackage: BrewPackage {
+            BrewPackage(
+                name: name,
+                version: versions?.stable ?? "",
+                description: desc ?? "",
+                homepage: homepage ?? "",
+                type: .formula
+            )
+        }
+    }
+
+    private struct CaskListItem: Decodable {
+        let token: String
+        let desc: String?
+        let homepage: String?
+        let version: String?
+        let name: [String]?
+
+        var asBrewPackage: BrewPackage {
+            BrewPackage(
+                name: token,
+                version: version ?? "",
+                description: desc ?? "",
+                homepage: homepage ?? "",
+                type: .cask
+            )
+        }
+    }
+
+    private struct GitHubRelease: Decodable {
+        let tagName: String
+        let name: String?
+        let body: String?
+        let publishedAt: String?
+        let htmlURL: String
+
+        enum CodingKeys: String, CodingKey {
+            case tagName = "tag_name"
+            case name, body
+            case publishedAt = "published_at"
+            case htmlURL = "html_url"
+        }
     }
 
     // MARK: - Cache
 
-    private struct CachedList {
-        let items: [[String: Any]]
+    private struct CachedFormulaeList {
+        let items: [FormulaListItem]
+        let fetchedAt: Date
+    }
+
+    private struct CachedCaskList {
+        let items: [CaskListItem]
         let fetchedAt: Date
     }
 
@@ -39,10 +125,12 @@ actor BrewAPIClient {
         let fetchedAt: Date
     }
 
-    private var formulaCache: CachedList?
-    private var caskCache: CachedList?
+    private var formulaCache: CachedFormulaeList?
+    private var caskCache: CachedCaskList?
     private var releaseNoteCache: [String: CachedRelease] = [:]
-    private let cacheTTL: TimeInterval = 600 // 10 minutes
+
+    private let cacheTTL: TimeInterval = 600        // 10 minutes for formula/cask lists
+    private let releaseNoteCacheTTL: TimeInterval = 3600 // 1 hour for release notes
 
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
@@ -51,57 +139,68 @@ actor BrewAPIClient {
         return URLSession(configuration: config)
     }()
 
-    // MARK: - Memory Management
+    // MARK: - Memory Management (tiered by severity)
 
-    /// Clear all in-memory caches (called on memory pressure).
+    /// Clear only the release note cache — called on memory `.warning`.
+    func clearReleaseNoteCache() {
+        releaseNoteCache.removeAll()
+        logger.debug("Release note cache cleared (memory warning)")
+    }
+
+    /// Clear all in-memory caches — called on memory `.critical`.
     func clearCaches() {
         formulaCache = nil
         caskCache = nil
         releaseNoteCache.removeAll()
+        logger.debug("All caches cleared (memory critical)")
     }
 
-    /// Monitor for system memory pressure and auto-clear caches.
-    private static let memoryPressureSource: DispatchSourceMemoryPressure = {
+    /// Registers a one-time memory pressure observer that clears caches in proportion to severity.
+    /// `.warning` → release notes only; `.critical` → everything.
+    private nonisolated(unsafe) static let memoryPressureSource: DispatchSourceMemoryPressure = {
         let source = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
         source.setEventHandler {
-            Task { await BrewAPIClient.shared.clearCaches() }
+            let event = source.data
+            Task {
+                if event.contains(.critical) {
+                    await BrewAPIClient.shared.clearCaches()
+                } else if event.contains(.warning) {
+                    await BrewAPIClient.shared.clearReleaseNoteCache()
+                }
+            }
         }
         source.resume()
         return source
     }()
 
-    /// Force the memory pressure source to initialize on first access.
     private func ensureMemoryObserver() {
         _ = Self.memoryPressureSource
     }
 
     // MARK: - Search
 
-    /// Search all formulae matching the query string (case-insensitive substring match).
     func searchFormulae(_ query: String) async throws -> [BrewPackage] {
         let list = try await fetchFormulaList()
         let lowered = query.lowercased()
         return list
-            .filter { ($0["name"] as? String ?? "").lowercased().contains(lowered) }
+            .filter { $0.name.lowercased().contains(lowered) }
             .prefix(50)
-            .map { parseFormulaDict($0) }
+            .map(\.asBrewPackage)
     }
 
-    /// Search all casks matching the query string.
     func searchCasks(_ query: String) async throws -> [BrewPackage] {
         let list = try await fetchCaskList()
         let lowered = query.lowercased()
         return list
             .filter {
-                let token = ($0["token"] as? String ?? "").lowercased()
-                let names = ($0["name"] as? [String])?.joined(separator: " ").lowercased() ?? ""
+                let token = $0.token.lowercased()
+                let names = ($0.name ?? []).joined(separator: " ").lowercased()
                 return token.contains(lowered) || names.contains(lowered)
             }
             .prefix(50)
-            .map { parseCaskDict($0) }
+            .map(\.asBrewPackage)
     }
 
-    /// Combined search across both formulae and casks.
     func search(_ query: String) async throws -> [BrewPackage] {
         async let formulae = searchFormulae(query)
         async let casks = searchCasks(query)
@@ -110,112 +209,59 @@ actor BrewAPIClient {
 
     // MARK: - Detail Info
 
-    /// Get detailed info for a formula by name via the API.
     func getFormulaInfo(_ name: String) async throws -> BrewPackage {
         let url = Self.formulaDetailURL(name)
         let (data, _) = try await session.data(from: url)
-        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return BrewPackage(name: name, type: .formula)
-        }
-        return parseFormulaDict(dict)
+        let item = try JSONDecoder().decode(FormulaListItem.self, from: data)
+        return item.asBrewPackage
     }
 
-    /// Get detailed info for a cask by name via the API.
     func getCaskInfo(_ name: String) async throws -> BrewPackage {
         let url = Self.caskDetailURL(name)
         let (data, _) = try await session.data(from: url)
-        guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return BrewPackage(name: name, type: .cask)
-        }
-        return parseCaskDict(dict)
+        let item = try JSONDecoder().decode(CaskListItem.self, from: data)
+        return item.asBrewPackage
     }
 
-    /// Get info for a package by name and type.
     func getInfo(_ name: String, type: PackageType) async throws -> BrewPackage {
         switch type {
-        case .formula:
-            return try await getFormulaInfo(name)
-        case .cask:
-            return try await getCaskInfo(name)
+        case .formula: return try await getFormulaInfo(name)
+        case .cask: return try await getCaskInfo(name)
         }
     }
 
     // MARK: - List Fetching (Cached)
 
-    private func fetchFormulaList() async throws -> [[String: Any]] {
+    private func fetchFormulaList() async throws -> [FormulaListItem] {
         if let cache = formulaCache, Date().timeIntervalSince(cache.fetchedAt) < cacheTTL {
             return cache.items
         }
         let (data, _) = try await session.data(from: Self.formulaListURL)
-        guard let list = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
-            return []
-        }
-        formulaCache = CachedList(items: list, fetchedAt: Date())
-        return list
+        let items = try JSONDecoder().decode([FormulaListItem].self, from: data)
+        formulaCache = CachedFormulaeList(items: items, fetchedAt: Date())
+        return items
     }
 
-    private func fetchCaskList() async throws -> [[String: Any]] {
+    private func fetchCaskList() async throws -> [CaskListItem] {
         if let cache = caskCache, Date().timeIntervalSince(cache.fetchedAt) < cacheTTL {
             return cache.items
         }
         let (data, _) = try await session.data(from: Self.caskListURL)
-        guard let list = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
-            return []
-        }
-        caskCache = CachedList(items: list, fetchedAt: Date())
-        return list
-    }
-
-    // MARK: - Parsing
-
-    private func parseFormulaDict(_ dict: [String: Any]) -> BrewPackage {
-        let name = dict["name"] as? String ?? dict["full_name"] as? String ?? ""
-        let desc = dict["desc"] as? String ?? ""
-        let homepage = dict["homepage"] as? String ?? ""
-
-        var version = ""
-        if let versions = dict["versions"] as? [String: Any] {
-            version = versions["stable"] as? String ?? ""
-        }
-
-        return BrewPackage(
-            name: name,
-            version: version,
-            description: desc,
-            homepage: homepage,
-            type: .formula
-        )
-    }
-
-    private func parseCaskDict(_ dict: [String: Any]) -> BrewPackage {
-        let token = dict["token"] as? String ?? ""
-        let desc = dict["desc"] as? String ?? ""
-        let homepage = dict["homepage"] as? String ?? ""
-        let version = dict["version"] as? String ?? ""
-
-        return BrewPackage(
-            name: token,
-            version: version,
-            description: desc,
-            homepage: homepage,
-            type: .cask
-        )
+        let items = try JSONDecoder().decode([CaskListItem].self, from: data)
+        caskCache = CachedCaskList(items: items, fetchedAt: Date())
+        return items
     }
 
     // MARK: - GitHub Release Notes
 
-    /// Fetch the latest release notes from GitHub for a package.
-    /// Returns `nil` if the homepage is not a GitHub repo or the API call fails.
-    /// Results are cached for 10 minutes.
     func fetchReleaseNotes(homepage: String) async -> ReleaseNote? {
         ensureMemoryObserver()
         guard let (owner, repo) = parseGitHubRepo(from: homepage) else { return nil }
 
         let cacheKey = "\(owner)/\(repo)"
 
-        // Check cache first
         if let cached = releaseNoteCache[cacheKey],
-           Date().timeIntervalSince(cached.fetchedAt) < cacheTTL {
+           Date().timeIntervalSince(cached.fetchedAt) < releaseNoteCacheTTL {
             return cached.note
         }
 
@@ -227,45 +273,54 @@ actor BrewAPIClient {
             request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
             request.timeoutInterval = 10
 
+            // Attach GitHub token if configured — raises limit from 60 to 5 000 req/hr.
+            if let token = UserDefaults.standard.string(forKey: AppSettingsKeys.githubToken),
+               !token.isEmpty {
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
+
             let (data, response) = try await session.data(for: request)
 
-            // Check for rate limit or not-found
-            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
-                return nil
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode == 403 || httpResponse.statusCode == 429 {
+                    // Rate limited — do NOT cache so future requests retry when limit resets.
+                    logger.warning("GitHub API rate limit hit for \(owner)/\(repo, privacy: .public) (status \(httpResponse.statusCode))")
+                    return nil
+                }
+                guard httpResponse.statusCode == 200 else {
+                    logger.debug("GitHub API returned \(httpResponse.statusCode) for \(owner)/\(repo, privacy: .public)")
+                    releaseNoteCache[cacheKey] = CachedRelease(note: nil, fetchedAt: Date())
+                    return nil
+                }
             }
 
-            guard let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                return nil
-            }
-
-            let tagName = dict["tag_name"] as? String ?? ""
-            let title = dict["name"] as? String ?? tagName
-            let body = dict["body"] as? String ?? ""
-            let publishedAt = dict["published_at"] as? String ?? ""
-            let htmlURL = dict["html_url"] as? String ?? ""
-
-            // Skip if there's no meaningful content
+            let decoded = try JSONDecoder().decode(GitHubRelease.self, from: data)
+            let body = decoded.body ?? ""
             guard !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                releaseNoteCache[cacheKey] = CachedRelease(note: nil, fetchedAt: Date())
                 return nil
             }
 
             let note = ReleaseNote(
-                tagName: tagName,
-                title: title,
+                tagName: decoded.tagName,
+                title: decoded.name ?? decoded.tagName,
                 body: body,
-                publishedAt: formatDate(publishedAt),
-                htmlURL: htmlURL
+                publishedAt: formatDate(decoded.publishedAt ?? ""),
+                htmlURL: decoded.htmlURL
             )
             releaseNoteCache[cacheKey] = CachedRelease(note: note, fetchedAt: Date())
             return note
+
         } catch {
-            // Cache the failure too to avoid repeated requests
+            logger.error("Failed to fetch release notes for \(owner)/\(repo, privacy: .public): \(error)")
+            // Cache the failure to avoid hammering the API on transient errors.
             releaseNoteCache[cacheKey] = CachedRelease(note: nil, fetchedAt: Date())
             return nil
         }
     }
 
-    /// Extract owner/repo from a GitHub URL like "https://github.com/owner/repo" or "https://github.com/owner/repo/..."
+    // MARK: - Helpers
+
     private func parseGitHubRepo(from urlString: String) -> (owner: String, repo: String)? {
         guard let url = URL(string: urlString),
               let host = url.host,
@@ -275,13 +330,9 @@ actor BrewAPIClient {
 
         let pathComponents = url.pathComponents.filter { $0 != "/" }
         guard pathComponents.count >= 2 else { return nil }
-
-        let owner = pathComponents[0]
-        let repo = pathComponents[1]
-        return (owner, repo)
+        return (pathComponents[0], pathComponents[1])
     }
 
-    /// Format an ISO 8601 date string into a human-readable form.
     private func formatDate(_ isoString: String) -> String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -291,7 +342,6 @@ actor BrewAPIClient {
             display.timeStyle = .none
             return display.string(from: date)
         }
-        // Try without fractional seconds
         formatter.formatOptions = [.withInternetDateTime]
         if let date = formatter.date(from: isoString) {
             let display = DateFormatter()

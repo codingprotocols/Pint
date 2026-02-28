@@ -6,20 +6,29 @@
 //
 
 import Foundation
+import OSLog
 import SwiftUI
+
+private let logger = Logger(subsystem: "com.pint", category: "services-vm")
 
 @MainActor
 @Observable
 final class ServicesViewModel {
     var services: [BrewServiceItem] = []
     var isLoading: Bool = false
-    var refreshInterval: Int = 30 // Seconds
+    var refreshInterval: Int = 30 // seconds
     var isAutoRefreshEnabled: Bool = true
 
-    private let brewService = BrewService()
+    /// Set by ServicesView after init. When non-nil, auto-refresh skips ticks
+    /// while a brew operation is in progress to prevent concurrent brew invocations.
+    weak var operationRunner: OperationRunner?
+
+    private let brewService: any BrewServiceProtocol
     private var refreshTask: Task<Void, Never>?
 
-    init() {
+    /// Pass a concrete implementation in tests; leave nil for the production default.
+    init(brewService: (any BrewServiceProtocol)? = nil) {
+        self.brewService = brewService ?? BrewService()
         startAutoRefresh()
     }
 
@@ -29,7 +38,7 @@ final class ServicesViewModel {
         do {
             services = try await brewService.listServices()
         } catch {
-            print("Failed to load services: \(error)")
+            logger.error("Failed to load services: \(error)")
         }
     }
 
@@ -38,7 +47,7 @@ final class ServicesViewModel {
             try await brewService.startService(name)
             await loadServices()
         } catch {
-            print("Failed to start service \(name): \(error)")
+            logger.error("Failed to start service '\(name, privacy: .public)': \(error)")
         }
     }
 
@@ -47,7 +56,7 @@ final class ServicesViewModel {
             try await brewService.stopService(name)
             await loadServices()
         } catch {
-            print("Failed to stop service \(name): \(error)")
+            logger.error("Failed to stop service '\(name, privacy: .public)': \(error)")
         }
     }
 
@@ -56,7 +65,7 @@ final class ServicesViewModel {
             try await brewService.restartService(name)
             await loadServices()
         } catch {
-            print("Failed to restart service \(name): \(error)")
+            logger.error("Failed to restart service '\(name, privacy: .public)': \(error)")
         }
     }
 
@@ -64,9 +73,11 @@ final class ServicesViewModel {
         refreshTask?.cancel()
         refreshTask = Task {
             while !Task.isCancelled {
-                await loadServices()
                 try? await Task.sleep(for: .seconds(refreshInterval))
-                guard isAutoRefreshEnabled else { break }
+                guard !Task.isCancelled, isAutoRefreshEnabled else { break }
+                // Skip this tick if a brew operation is running to prevent concurrent invocations.
+                guard !(operationRunner?.isOperationRunning ?? false) else { continue }
+                await loadServices()
             }
         }
     }

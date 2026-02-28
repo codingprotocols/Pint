@@ -9,6 +9,7 @@ import SwiftUI
 
 struct SearchView: View {
     @Environment(AppViewModel.self) private var viewModel
+    @State private var debounceTask: Task<Void, Never>?
 
     var body: some View {
         @Bindable var vm = viewModel
@@ -31,7 +32,20 @@ struct SearchView: View {
                         .textFieldStyle(.plain)
                         .font(.title3)
                         .onSubmit {
+                            debounceTask?.cancel()
                             Task { await viewModel.performSearch() }
+                        }
+                        .onChange(of: vm.searchQuery) { _, newValue in
+                            debounceTask?.cancel()
+                            guard !newValue.trimmingCharacters(in: .whitespaces).isEmpty else {
+                                viewModel.searchResults = []
+                                return
+                            }
+                            debounceTask = Task {
+                                try? await Task.sleep(for: .milliseconds(300))
+                                guard !Task.isCancelled else { return }
+                                await viewModel.performSearch()
+                            }
                         }
 
                     if viewModel.isSearching {
