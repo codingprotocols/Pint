@@ -21,6 +21,8 @@ struct BrewServiceItem: Identifiable, Hashable, Sendable {
     enum ServiceStatus: String, Codable, Sendable {
         case started
         case stopped
+        /// Installed but never started via `brew services start` — brew reports "none".
+        case none
         case error
         case unknown
 
@@ -28,6 +30,7 @@ struct BrewServiceItem: Identifiable, Hashable, Sendable {
             switch self {
             case .started: return .green
             case .stopped: return .secondary
+            case .none: return .secondary
             case .error: return .red
             case .unknown: return .orange
             }
@@ -37,8 +40,16 @@ struct BrewServiceItem: Identifiable, Hashable, Sendable {
             switch self {
             case .started: return "play.fill"
             case .stopped: return "stop.fill"
+            case .none: return "minus.circle"
             case .error: return "exclamationmark.triangle.fill"
             case .unknown: return "questionmark.circle.fill"
+            }
+        }
+
+        var displayName: String {
+            switch self {
+            case .none: return "Not Started"
+            default: return rawValue.capitalized
             }
         }
     }

@@ -85,11 +85,10 @@ struct ServicesView: View {
             }
         }
         .task {
-            // Wire operation guard (3-A) then load.
             viewModel.operationRunner = appViewModel.runner
-            if !appViewModel.isOperationRunning {
-                await viewModel.loadServices()
-            }
+            // Always load on appear — brew services list only reads launchctl,
+            // so it's safe to run concurrently with any other brew operation.
+            await viewModel.loadServices()
         }
         .environment(appViewModel)
     }
@@ -118,7 +117,7 @@ struct ServiceRow: View {
                     .font(.headline)
 
                 HStack(spacing: 8) {
-                    Text(service.status.rawValue.capitalized)
+                    Text(service.status.displayName)
                         .font(.caption.bold())
                         .foregroundStyle(service.status.color)
 

@@ -306,6 +306,7 @@ final class AppViewModel {
                 guard !Task.isCancelled else { break }
                 do {
                     outdatedPackages = try await brewService.listOutdated()
+                    reconcileOutdatedStatus()
                     backgroundError = nil // Clear on success
                 } catch {
                     logger.error("Background update check failed: \(error)")
@@ -327,6 +328,7 @@ final class AppViewModel {
                 }
             }
             installedPackages = packages
+            reconcileOutdatedStatus()
         } catch {
             showError(error.localizedDescription)
         }
@@ -337,8 +339,20 @@ final class AppViewModel {
         defer { isLoadingOutdated = false }
         do {
             outdatedPackages = try await brewService.listOutdated()
+            reconcileOutdatedStatus()
         } catch {
             showError(error.localizedDescription)
+        }
+    }
+
+    /// Syncs `isOutdated` on every `installedPackages` entry to match `outdatedPackages`.
+    /// `brew outdated --json=v2` is the authoritative source; `brew info --installed` can
+    /// diverge (e.g. for pinned formulae or greedy casks), causing false orange badges.
+    private func reconcileOutdatedStatus() {
+        guard !installedPackages.isEmpty else { return }
+        let outdatedNames = Set(outdatedPackages.map { $0.name })
+        for i in 0..<installedPackages.count {
+            installedPackages[i].isOutdated = outdatedNames.contains(installedPackages[i].name)
         }
     }
 

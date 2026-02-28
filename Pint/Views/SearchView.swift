@@ -90,21 +90,7 @@ struct SearchView: View {
                 }
                 Spacer()
             } else if viewModel.searchResults.isEmpty {
-                Spacer()
-                VStack(spacing: 16) {
-                    Image(systemName: "sparkle.magnifyingglass")
-                        .font(.system(size: 48))
-                        .foregroundStyle(
-                            LinearGradient(colors: [.purple.opacity(0.3), .indigo.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                        )
-                    Text("Search Homebrew packages")
-                        .font(.title3.weight(.medium))
-                        .foregroundStyle(.secondary)
-                    Text("Find formulae and casks to install")
-                        .font(.callout)
-                        .foregroundStyle(.tertiary)
-                }
-                Spacer()
+                PopularSuggestionsView()
             } else {
                 List {
                     ForEach(viewModel.searchResults) { pkg in
@@ -113,6 +99,138 @@ struct SearchView: View {
                 }
                 .listStyle(.inset)
             }
+        }
+    }
+}
+
+// MARK: - Popular Suggestions
+
+private struct SuggestionCategory: Identifiable {
+    let id = UUID()
+    let title: String
+    let icon: String
+    let color: Color
+    let packages: [BrewPackage]
+}
+
+struct PopularSuggestionsView: View {
+    @Environment(AppViewModel.self) private var viewModel
+
+    private static let categories: [SuggestionCategory] = [
+        SuggestionCategory(
+            title: "Must-Have Apps",
+            icon: "star.fill",
+            color: .orange,
+            packages: [
+                BrewPackage(name: "visual-studio-code", description: "Open-source code editor from Microsoft", type: .cask),
+                BrewPackage(name: "iterm2", description: "Terminal emulator as alternative to Apple's Terminal", type: .cask),
+                BrewPackage(name: "warp", description: "Rust-based terminal with AI assistance built-in", type: .cask),
+                BrewPackage(name: "docker", description: "Platform for containerised application development", type: .cask),
+                BrewPackage(name: "postman", description: "Collaboration platform for API development & testing", type: .cask),
+                BrewPackage(name: "tableplus", description: "Modern, native database management GUI", type: .cask),
+                BrewPackage(name: "sourcetree", description: "Free Git and Mercurial GUI client", type: .cask),
+            ]
+        ),
+        SuggestionCategory(
+            title: "CLI Essentials",
+            icon: "terminal.fill",
+            color: .green,
+            packages: [
+                BrewPackage(name: "node", description: "JavaScript runtime built on Chrome's V8 engine", type: .formula),
+                BrewPackage(name: "gh", description: "GitHub's official command-line tool", type: .formula),
+                BrewPackage(name: "wget", description: "Internet file retriever supporting HTTP, HTTPS, FTP", type: .formula),
+                BrewPackage(name: "jq", description: "Lightweight and flexible command-line JSON processor", type: .formula),
+                BrewPackage(name: "ripgrep", description: "Fast search tool like grep, optimised for code", type: .formula),
+                BrewPackage(name: "bat", description: "A cat clone with syntax highlighting and Git integration", type: .formula),
+                BrewPackage(name: "fzf", description: "Command-line fuzzy finder for files, history & more", type: .formula),
+                BrewPackage(name: "ffmpeg", description: "Play, record, convert, and stream audio and video", type: .formula),
+                BrewPackage(name: "htop", description: "Improved interactive process viewer", type: .formula),
+            ]
+        ),
+        SuggestionCategory(
+            title: "Productivity",
+            icon: "bolt.fill",
+            color: .purple,
+            packages: [
+                BrewPackage(name: "raycast", description: "Supercharged launcher with extensions and AI", type: .cask),
+                BrewPackage(name: "rectangle", description: "Move and resize windows with keyboard shortcuts", type: .cask),
+                BrewPackage(name: "notion", description: "All-in-one workspace for notes, docs, and tasks", type: .cask),
+                BrewPackage(name: "obsidian", description: "Markdown-based knowledge base and note-taking", type: .cask),
+                BrewPackage(name: "1password", description: "Password manager and secure digital wallet", type: .cask),
+                BrewPackage(name: "slack", description: "Team communication and messaging platform", type: .cask),
+                BrewPackage(name: "zoom", description: "Video conferencing and online meetings", type: .cask),
+            ]
+        ),
+        SuggestionCategory(
+            title: "Media & Design",
+            icon: "paintpalette.fill",
+            color: .pink,
+            packages: [
+                BrewPackage(name: "figma", description: "Collaborative interface design and prototyping tool", type: .cask),
+                BrewPackage(name: "vlc", description: "Cross-platform multimedia player for any format", type: .cask),
+                BrewPackage(name: "spotify", description: "Music and podcast streaming service", type: .cask),
+                BrewPackage(name: "discord", description: "Chat and voice for gaming and communities", type: .cask),
+                BrewPackage(name: "handbrake", description: "Open-source video transcoder", type: .cask),
+            ]
+        ),
+    ]
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 28) {
+                HStack(spacing: 10) {
+                    Image(systemName: "sparkle.magnifyingglass")
+                        .font(.title2)
+                        .foregroundStyle(
+                            LinearGradient(colors: [.purple, .indigo], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        )
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Discover Popular Packages")
+                            .font(.title3.weight(.semibold))
+                        Text("Suggestions based on what developers commonly install")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.bottom, 4)
+
+                ForEach(Self.categories) { category in
+                    let notInstalled = category.packages.filter { pkg in
+                        !viewModel.installedPackages.contains { $0.name == pkg.name }
+                    }
+                    if !notInstalled.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            // Category header
+                            HStack(spacing: 6) {
+                                Image(systemName: category.icon)
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(category.color)
+                                Text(category.title)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.primary)
+                                Text("· \(notInstalled.count) not installed")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(.horizontal, 4)
+
+                            VStack(spacing: 0) {
+                                ForEach(Array(notInstalled.enumerated()), id: \.element.id) { index, pkg in
+                                    SearchResultRow(package: pkg)
+                                    if index < notInstalled.count - 1 {
+                                        Divider().padding(.leading, 56)
+                                    }
+                                }
+                            }
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(.background.secondary)
+                            )
+                        }
+                    }
+                }
+            }
+            .padding(20)
         }
     }
 }

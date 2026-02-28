@@ -82,8 +82,7 @@ private struct BrewOutdatedOutput: Decodable {
 
     struct OutdatedCask: Decodable {
         let name: String
-        // Casks report a single string, not an array.
-        let installedVersions: String
+        let installedVersions: [String]
         let currentVersion: String
 
         enum CodingKeys: String, CodingKey {
@@ -182,12 +181,13 @@ final class BrewService: BrewServiceProtocol {
             }
 
             for cask in decoded.casks {
+                let current = cask.installedVersions.first ?? ""
                 packages.append(BrewPackage(
                     name: cask.name,
-                    version: cask.installedVersions,
+                    version: current,
                     type: .cask,
                     isOutdated: true,
-                    currentVersion: cask.installedVersions,
+                    currentVersion: current,
                     latestVersion: cask.currentVersion
                 ))
             }
