@@ -17,6 +17,10 @@ enum AppSettingsKeys {
     /// Optional GitHub personal access token stored in UserDefaults.
     /// Raises the GitHub API rate limit from 60 to 5 000 req/hr.
     static let githubToken = "githubToken"
+    /// Unix timestamp (Double) of the last successful `brew update` run.
+    static let lastBrewUpdate = "lastBrewUpdate"
+    /// Bool — whether to send macOS notifications on operation completion / new updates.
+    static let notificationsEnabled = "notificationsEnabled"
 }
 
 /// Available intervals for automatic update checking.

@@ -30,6 +30,20 @@ struct MenuBarView: View {
 
             Divider()
 
+            // Active operation status
+            if viewModel.isOperationRunning, let op = viewModel.activeOperation {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("brew \(op.command) \(op.packageName)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                Divider()
+            }
+
             // Status
             if viewModel.outdatedPackages.isEmpty {
                 HStack(spacing: 8) {
@@ -91,6 +105,11 @@ struct MenuBarView: View {
                         Image(systemName: "arrow.clockwise")
                         Text("Check for Updates")
                         Spacer()
+                        if let checked = viewModel.lastOutdatedCheck {
+                            Text(RelativeDateTimeFormatter().localizedString(for: checked, relativeTo: Date()))
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
                     }
                     .contentShape(Rectangle())
                 }

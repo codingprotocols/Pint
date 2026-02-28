@@ -13,18 +13,16 @@ struct SettingsView: View {
     @AppStorage(AppSettingsKeys.showMenuBarIcon) private var showMenuBarIcon = true
     @AppStorage(AppSettingsKeys.launchAtLogin) private var launchAtLogin = false
     @AppStorage(AppSettingsKeys.updateCheckInterval) private var updateCheckInterval = 3600
+    @AppStorage(AppSettingsKeys.notificationsEnabled) private var notificationsEnabled = true
+    @AppStorage(AppSettingsKeys.githubToken) private var githubToken = ""
 
     var body: some View {
         Form {
             Section {
                 Toggle("Show in Menu Bar", isOn: $showMenuBarIcon)
                     .onChange(of: showMenuBarIcon) { _, newValue in
-                        if !newValue {
-                            // When disabling menu bar, ensure dock icon is visible
-                            NSApp.setActivationPolicy(.regular)
-                        }
+                        if !newValue { NSApp.setActivationPolicy(.regular) }
                     }
-
                 Toggle("Launch at Login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, newValue in
                         configureLaunchAtLogin(enabled: newValue)
@@ -34,8 +32,7 @@ struct SettingsView: View {
             } footer: {
                 if showMenuBarIcon {
                     Text("Pint will stay in the menu bar when you close the window.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(.secondary)
                 }
             }
 
@@ -46,16 +43,26 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.menu)
+                Toggle("Send Notifications", isOn: $notificationsEnabled)
             } header: {
                 Label("Background Updates", systemImage: "arrow.clockwise")
             } footer: {
-                Text("Pint will automatically check for outdated packages at this interval.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text("Notifications are sent when operations complete or new updates are found.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section {
+                SecureField("Paste token here…", text: $githubToken)
+                    .textFieldStyle(.roundedBorder)
+            } header: {
+                Label("GitHub API Token", systemImage: "key.fill")
+            } footer: {
+                Text("Optional. Raises release-notes rate limit from 60 → 5,000 requests/hr. Generate a token at github.com/settings/tokens (no scopes needed).")
+                    .font(.caption).foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
-        .frame(width: 420, height: 260)
+        .frame(width: 440, height: 420)
         .navigationTitle("Settings")
     }
 

@@ -7,9 +7,31 @@
 
 import SwiftUI
 
+private enum InstalledSortOrder: String, CaseIterable, Identifiable {
+    case nameAZ = "Name (A–Z)"
+    case nameZA = "Name (Z–A)"
+    case outdatedFirst = "Outdated First"
+    case formulaeFirst = "Formulae First"
+    case casksFirst = "Casks First"
+    var id: String { rawValue }
+}
+
 struct InstalledView: View {
     @Environment(AppViewModel.self) private var viewModel
     @State private var selection = Set<String>()
+    @State private var sortOrder: InstalledSortOrder = .nameAZ
+    @State private var groupByType = false
+
+    private var sortedInstalled: [BrewPackage] {
+        let list = viewModel.filteredInstalled
+        switch sortOrder {
+        case .nameAZ:       return list
+        case .nameZA:       return list.sorted { $0.name > $1.name }
+        case .outdatedFirst: return list.sorted { $0.isOutdated && !$1.isOutdated }
+        case .formulaeFirst: return list.sorted { $0.type == .formula && $1.type != .formula }
+        case .casksFirst:   return list.sorted { $0.type == .cask && $1.type != .cask }
+        }
+    }
 
     var body: some View {
         @Bindable var vm = viewModel
@@ -61,6 +83,26 @@ struct InstalledView: View {
                     FilterChip(label: "Casks", isSelected: viewModel.installedFilter == .cask, color: .purple) {
                         viewModel.installedFilter = .cask
                     }
+
+                    Divider().frame(height: 20)
+
+                    Menu {
+                        Section("Sort By") {
+                            Picker("Sort", selection: $sortOrder) {
+                                ForEach(InstalledSortOrder.allCases) { order in
+                                    Text(order.rawValue).tag(order)
+                                }
+                            }
+                            .pickerStyle(.inline)
+                        }
+                        Divider()
+                        Toggle("Group by Type", isOn: $groupByType)
+                    } label: {
+                        Image(systemName: "arrow.up.arrow.down")
+                            .font(.callout)
+                    }
+                    .buttonStyle(.bordered)
+                    .help("Sort & Group")
                 }
             }
             .padding(24)
@@ -113,9 +155,27 @@ struct InstalledView: View {
                 Spacer()
             } else {
                 List(selection: $selection) {
-                    ForEach(viewModel.filteredInstalled) { pkg in
-                        InstalledPackageRow(package: pkg)
-                            .tag(pkg.id)
+                    if groupByType {
+                        let formulae = sortedInstalled.filter { $0.type == .formula }
+                        let casks    = sortedInstalled.filter { $0.type == .cask }
+                        if !formulae.isEmpty {
+                            Section("Formulae (\(formulae.count))") {
+                                ForEach(formulae) { pkg in
+                                    InstalledPackageRow(package: pkg).tag(pkg.id)
+                                }
+                            }
+                        }
+                        if !casks.isEmpty {
+                            Section("Casks (\(casks.count))") {
+                                ForEach(casks) { pkg in
+                                    InstalledPackageRow(package: pkg).tag(pkg.id)
+                                }
+                            }
+                        }
+                    } else {
+                        ForEach(sortedInstalled) { pkg in
+                            InstalledPackageRow(package: pkg).tag(pkg.id)
+                        }
                     }
                 }
                 .listStyle(.inset)

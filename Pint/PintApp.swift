@@ -83,7 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Ensure dock icon is visible on launch
         NSApp.setActivationPolicy(.regular)
+        viewModel?.requestNotificationPermission()
     }
 }

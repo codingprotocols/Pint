@@ -67,19 +67,19 @@ struct DashboardView: View {
                         value: "\(viewModel.installedPackages.count)",
                         icon: "shippingbox.fill",
                         gradient: [Color(red: 0.2, green: 0.5, blue: 1.0), Color(red: 0.4, green: 0.7, blue: 1.0)]
-                    )
+                    ) { viewModel.selectedNav = .installed; viewModel.installedFilter = nil }
                     GradientStatCard(
                         title: "Formulae",
                         value: "\(viewModel.totalFormulae)",
                         icon: "terminal.fill",
                         gradient: [Color(red: 0.2, green: 0.8, blue: 0.5), Color(red: 0.4, green: 0.9, blue: 0.7)]
-                    )
+                    ) { viewModel.selectedNav = .installed; viewModel.installedFilter = .formula }
                     GradientStatCard(
                         title: "Casks",
                         value: "\(viewModel.totalCasks)",
                         icon: "macwindow",
                         gradient: [Color(red: 0.6, green: 0.3, blue: 0.9), Color(red: 0.8, green: 0.5, blue: 1.0)]
-                    )
+                    ) { viewModel.selectedNav = .installed; viewModel.installedFilter = .cask }
                     GradientStatCard(
                         title: "Upgrades",
                         value: "\(viewModel.outdatedPackages.count)",
@@ -87,9 +87,42 @@ struct DashboardView: View {
                         gradient: viewModel.outdatedPackages.isEmpty
                             ? [.gray.opacity(0.5), .gray.opacity(0.3)]
                             : [Color(red: 1.0, green: 0.5, blue: 0.1), Color(red: 1.0, green: 0.7, blue: 0.2)]
-                    )
+                    ) { viewModel.selectedNav = .upgrades }
                 }
                 .padding(.horizontal, 24)
+
+                // Stale formula database warning
+                if viewModel.isBrewUpdateStale {
+                    HStack(spacing: 10) {
+                        Image(systemName: "clock.badge.exclamationmark.fill")
+                            .foregroundStyle(.yellow)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Formula database may be outdated")
+                                .font(.callout.weight(.medium))
+                            Text(viewModel.lastBrewUpdateDate.map { "Last updated \(RelativeDateTimeFormatter().localizedString(for: $0, relativeTo: Date()))" } ?? "Never updated")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button {
+                            viewModel.updateBrew()
+                        } label: {
+                            Label("Update Now", systemImage: "arrow.clockwise")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.yellow)
+                        .controlSize(.small)
+                        .disabled(viewModel.isOperationRunning)
+                    }
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(.yellow.opacity(0.08))
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(.yellow.opacity(0.25), lineWidth: 1))
+                    )
+                    .padding(.horizontal, 24)
+                }
 
                 // Outdated Packages Section
                 if !viewModel.outdatedPackages.isEmpty {
@@ -201,43 +234,47 @@ struct GradientStatCard: View {
     let value: String
     let icon: String
     let gradient: [Color]
+    var action: (() -> Void)? = nil
 
     @State private var isHovered = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Image(systemName: icon)
-                    .font(.title2)
-                    .foregroundStyle(.white.opacity(0.9))
-                Spacer()
+        Button {
+            action?()
+        } label: {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Image(systemName: icon)
+                        .font(.title2)
+                        .foregroundStyle(.white.opacity(0.9))
+                    Spacer()
+                    if action != nil {
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.5))
+                    }
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(value)
+                        .font(.system(.title, design: .rounded, weight: .bold))
+                        .foregroundStyle(.white)
+                    Text(title)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.75))
+                }
             }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(value)
-                    .font(.system(.title, design: .rounded, weight: .bold))
-                    .foregroundStyle(.white)
-                Text(title)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.75))
-            }
+            .padding(18)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(LinearGradient(colors: gradient, startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .shadow(color: gradient.first?.opacity(0.3) ?? .clear, radius: isHovered ? 12 : 6, y: isHovered ? 6 : 3)
+            )
+            .scaleEffect(isHovered ? 1.03 : 1.0)
+            .animation(.easeInOut(duration: 0.2), value: isHovered)
+            .onHover { hovering in isHovered = hovering }
         }
-        .padding(18)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(
-                    LinearGradient(
-                        colors: gradient,
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .shadow(color: gradient.first?.opacity(0.3) ?? .clear, radius: isHovered ? 12 : 6, y: isHovered ? 6 : 3)
-        )
-        .scaleEffect(isHovered ? 1.03 : 1.0)
-        .animation(.easeInOut(duration: 0.2), value: isHovered)
-        .onHover { hovering in
-            isHovered = hovering
-        }
+        .buttonStyle(.plain)
+        .disabled(action == nil)
     }
 }
 

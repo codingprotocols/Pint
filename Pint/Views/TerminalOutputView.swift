@@ -133,6 +133,17 @@ struct OperationBannerView: View {
                 .background(.ultraThinMaterial)
             }
             .transition(.move(edge: .bottom).combined(with: .opacity))
+            .onChange(of: op.isComplete) { _, isComplete in
+                // Auto-dismiss after 3 s on success — only when output is collapsed.
+                guard isComplete, op.isSuccess, !isExpanded else { return }
+                let opID = op.id
+                Task {
+                    try? await Task.sleep(for: .seconds(3))
+                    if viewModel.activeOperation?.id == opID, !isExpanded {
+                        viewModel.dismissOperation()
+                    }
+                }
+            }
         }
     }
 }

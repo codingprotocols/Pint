@@ -61,6 +61,19 @@ struct ContentView: View {
                 .animation(.easeInOut(duration: 0.3), value: viewModel.backgroundError != nil)
             }
         }
+        // Global keyboard shortcuts — hidden buttons respond even when unfocused.
+        .background {
+            Group {
+                Button("") { viewModel.refreshCurrentView() }
+                    .keyboardShortcut("r", modifiers: .command)
+                Button("") { viewModel.selectedNav = .search }
+                    .keyboardShortcut("k", modifiers: .command)
+                Button("") { viewModel.selectedNav = .upgrades }
+                    .keyboardShortcut("u", modifiers: [.command, .shift])
+            }
+            .opacity(0)
+            .allowsHitTesting(false)
+        }
         .alert("Error", isPresented: $vm.showError) {
             Button("OK") { }
         } message: {

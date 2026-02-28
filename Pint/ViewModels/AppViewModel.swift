@@ -8,6 +8,7 @@
 import Foundation
 import OSLog
 import SwiftUI
+import UserNotifications
 
 private let logger = Logger(subsystem: "com.pint", category: "app-vm")
 
@@ -217,6 +218,22 @@ final class AppViewModel {
     var errorMessage: String? = nil
     var showError: Bool = false
 
+    // Notifications & update tracking
+    var lastOutdatedCheck: Date? = nil
+    /// Reactive date of last `brew update` — initialised from UserDefaults, written back on update.
+    var lastBrewUpdateDate: Date? = {
+        let ts = UserDefaults.standard.double(forKey: AppSettingsKeys.lastBrewUpdate)
+        return ts > 0 ? Date(timeIntervalSince1970: ts) : nil
+    }()
+    var isBrewUpdateStale: Bool {
+        guard let date = lastBrewUpdateDate else { return true }
+        return Date().timeIntervalSince(date) > 86400
+    }
+    /// Read directly from UserDefaults — no reactivity needed (only checked when sending notifications).
+    private var notificationsEnabled: Bool {
+        UserDefaults.standard.object(forKey: AppSettingsKeys.notificationsEnabled) as? Bool ?? true
+    }
+
     // Filters
     var installedFilter: PackageType? = nil
     var installedSearchText: String = ""
@@ -253,6 +270,26 @@ final class AppViewModel {
     func cancelOperation() { runner.cancel() }
     func dismissOperation() { runner.dismiss() }
     func clearHistory() { runner.clearHistory() }
+
+    /// Refresh the data for whichever tab is currently visible (bound to ⌘R).
+    func refreshCurrentView() {
+        switch selectedNav {
+        case .dashboard:
+            Task { await loadInstalled(); await loadOutdated() }
+        case .installed:
+            Task { await loadInstalled() }
+        case .upgrades:
+            Task { await loadOutdated() }
+        case .taps:
+            Task { await loadTaps() }
+        case .search:
+            Task { await performSearch() }
+        case .doctor:
+            Task { await loadDoctor() }
+        default:
+            break
+        }
+    }
 
     // MARK: - Computed
 
@@ -305,9 +342,16 @@ final class AppViewModel {
                 try? await Task.sleep(for: .seconds(seconds))
                 guard !Task.isCancelled else { break }
                 do {
+                    let previousCount = outdatedPackages.count
                     outdatedPackages = try await brewService.listOutdated()
                     reconcileOutdatedStatus()
-                    backgroundError = nil // Clear on success
+                    lastOutdatedCheck = Date()
+                    backgroundError = nil
+                    // Notify only when new packages become outdated since last check.
+                    let newCount = outdatedPackages.count
+                    if newCount > previousCount {
+                        await sendUpdatesFoundNotification(count: newCount)
+                    }
                 } catch {
                     logger.error("Background update check failed: \(error)")
                     backgroundError = error.localizedDescription
@@ -340,6 +384,7 @@ final class AppViewModel {
         do {
             outdatedPackages = try await brewService.listOutdated()
             reconcileOutdatedStatus()
+            lastOutdatedCheck = Date()
         } catch {
             showError(error.localizedDescription)
         }
@@ -458,6 +503,14 @@ final class AppViewModel {
     func updateBrew() {
         runBrewOperation(command: "update", packageName: "Homebrew") { [weak self] onOutput in
             try await self?.brewService.update(onOutput: onOutput)
+        } onComplete: { [weak self] in
+            let now = Date()
+            await MainActor.run {
+                self?.lastBrewUpdateDate = now
+            }
+            UserDefaults.standard.set(now.timeIntervalSince1970, forKey: AppSettingsKeys.lastBrewUpdate)
+            await self?.loadInstalled()
+            await self?.loadOutdated()
         }
     }
 
@@ -506,11 +559,46 @@ final class AppViewModel {
             await self?.loadOutdated()
         }
 
+        let baseComplete = onComplete ?? defaultOnComplete
+
+        // Wrap completion to send a macOS notification after every operation.
+        let wrappedComplete: @Sendable () async -> Void = { [weak self] in
+            let isSuccess = await MainActor.run { self?.runner.activeOperation?.isSuccess ?? true }
+            await baseComplete()
+            await self?.sendOperationNotification(command: command, packageName: packageName, isSuccess: isSuccess)
+        }
+
         runner.run(
             operation: BrewOperation(command: command, packageName: packageName),
             action: action,
-            onComplete: onComplete ?? defaultOnComplete
+            onComplete: wrappedComplete
         )
+    }
+
+    // MARK: - Notifications
+
+    func requestNotificationPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    }
+
+    private func sendOperationNotification(command: String, packageName: String, isSuccess: Bool) async {
+        guard notificationsEnabled else { return }
+        let content = UNMutableNotificationContent()
+        content.title = isSuccess ? "✓ Operation Completed" : "✗ Operation Failed"
+        content.body = "brew \(command) \(packageName)"
+        content.sound = .default
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        try? await UNUserNotificationCenter.current().add(request)
+    }
+
+    private func sendUpdatesFoundNotification(count: Int) async {
+        guard notificationsEnabled, count > 0 else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "Homebrew Updates Available"
+        content.body = "\(count) package\(count == 1 ? "" : "s") ready to upgrade"
+        content.sound = .default
+        let request = UNNotificationRequest(identifier: "pint-updates-found", content: content, trigger: nil)
+        try? await UNUserNotificationCenter.current().add(request)
     }
 
     private func showError(_ message: String) {
