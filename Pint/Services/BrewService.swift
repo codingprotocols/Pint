@@ -37,6 +37,7 @@ protocol BrewServiceProtocol: AnyObject {
     func unpin(_ name: String) async throws
     func autoremove(onOutput: @escaping @Sendable (String) -> Void) async throws
     func installMultiple(_ names: [String], isCask: Bool, onOutput: @escaping @Sendable (String) -> Void) async throws
+    func prefetchSearchLists() async
 }
 
 // MARK: - Codable Types (Homebrew JSON schema)
@@ -212,6 +213,10 @@ final class BrewService: BrewServiceProtocol {
     func search(_ query: String) async throws -> [BrewPackage] {
         guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { return [] }
         return try await apiClient.search(query)
+    }
+
+    func prefetchSearchLists() async {
+        await apiClient.prefetchSearchLists()
     }
 
     func getInfo(_ name: String, type: PackageType = .formula) async throws -> BrewPackage {

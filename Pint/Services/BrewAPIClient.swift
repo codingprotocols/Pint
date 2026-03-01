@@ -17,6 +17,8 @@ protocol BrewAPIClientProtocol: Sendable {
     /// Returns `nil` when no release notes are available (not a GitHub repo, empty body, API error).
     /// Returns `nil` without caching on GitHub rate-limit (403/429) so future calls retry.
     func fetchReleaseNotes(homepage: String) async -> ReleaseNote?
+    /// Downloads and caches the formula and cask lists so the first search is instant.
+    func prefetchSearchLists() async
 }
 
 // MARK: - Implementation
@@ -179,13 +181,23 @@ actor BrewAPIClient: BrewAPIClientProtocol {
         _ = Self.memoryPressureSource
     }
 
+    // MARK: - Prefetch
+
+    func prefetchSearchLists() async {
+        async let _ = try? fetchFormulaList()
+        async let _ = try? fetchCaskList()
+    }
+
     // MARK: - Search
 
     func searchFormulae(_ query: String) async throws -> [BrewPackage] {
         let list = try await fetchFormulaList()
         let lowered = query.lowercased()
         return list
-            .filter { $0.name.lowercased().contains(lowered) }
+            .filter {
+                $0.name.lowercased().contains(lowered) ||
+                ($0.desc ?? "").lowercased().contains(lowered)
+            }
             .prefix(50)
             .map(\.asBrewPackage)
     }
@@ -197,7 +209,8 @@ actor BrewAPIClient: BrewAPIClientProtocol {
             .filter {
                 let token = $0.token.lowercased()
                 let names = ($0.name ?? []).joined(separator: " ").lowercased()
-                return token.contains(lowered) || names.contains(lowered)
+                let desc = ($0.desc ?? "").lowercased()
+                return token.contains(lowered) || names.contains(lowered) || desc.contains(lowered)
             }
             .prefix(50)
             .map(\.asBrewPackage)

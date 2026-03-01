@@ -153,6 +153,7 @@ struct SearchView: View {
                 .listStyle(.inset)
             }
         }
+        .task { await viewModel.prefetchSearchLists() }
     }
 }
 

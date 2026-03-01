@@ -452,6 +452,10 @@ final class AppViewModel {
         }
     }
 
+    func prefetchSearchLists() async {
+        await brewService.prefetchSearchLists()
+    }
+
     func performSearch() async {
         guard !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty else {
             searchResults = []
@@ -461,6 +465,8 @@ final class AppViewModel {
         defer { isSearching = false }
         do {
             searchResults = try await brewService.search(searchQuery)
+        } catch is CancellationError {
+            // Debounce cancelled a previous search — not an error.
         } catch {
             showError(error.localizedDescription)
         }
