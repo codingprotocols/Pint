@@ -192,26 +192,25 @@ actor BrewAPIClient: BrewAPIClientProtocol {
 
     func searchFormulae(_ query: String) async throws -> [BrewPackage] {
         let list = try await fetchFormulaList()
-        let lowered = query.lowercased()
         return list
             .filter {
-                $0.name.lowercased().contains(lowered) ||
-                ($0.desc ?? "").lowercased().contains(lowered)
+                $0.name.localizedCaseInsensitiveContains(query) ||
+                ($0.desc ?? "").localizedCaseInsensitiveContains(query)
             }
+            .sorted { $0.name.localizedCaseInsensitiveContains(query) && !$1.name.localizedCaseInsensitiveContains(query) }
             .prefix(50)
             .map(\.asBrewPackage)
     }
 
     func searchCasks(_ query: String) async throws -> [BrewPackage] {
         let list = try await fetchCaskList()
-        let lowered = query.lowercased()
         return list
             .filter {
-                let token = $0.token.lowercased()
-                let names = ($0.name ?? []).joined(separator: " ").lowercased()
-                let desc = ($0.desc ?? "").lowercased()
-                return token.contains(lowered) || names.contains(lowered) || desc.contains(lowered)
+                $0.token.localizedCaseInsensitiveContains(query) ||
+                ($0.name ?? []).joined(separator: " ").localizedCaseInsensitiveContains(query) ||
+                ($0.desc ?? "").localizedCaseInsensitiveContains(query)
             }
+            .sorted { $0.token.localizedCaseInsensitiveContains(query) && !$1.token.localizedCaseInsensitiveContains(query) }
             .prefix(50)
             .map(\.asBrewPackage)
     }
