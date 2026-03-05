@@ -362,6 +362,19 @@ final class AppViewModel {
             await loadOutdated()
             await loadBrewVersion()
             await loadTaps()
+
+            // If the formula database is stale, silently run `brew update` in the
+            // background so the outdated list reflects the actual latest versions.
+            if isBrewUpdateStale {
+                Task {
+                    try? await brewService.update(onOutput: { _ in })
+                    await self.loadOutdated()
+                    let now = Date()
+                    self.lastBrewUpdateDate = now
+                    UserDefaults.standard.set(now.timeIntervalSince1970, forKey: AppSettingsKeys.lastBrewUpdate)
+                }
+            }
+
             startBackgroundUpdateChecking()
         }
     }
@@ -377,6 +390,12 @@ final class AppViewModel {
                 try? await Task.sleep(for: .seconds(seconds))
                 guard !Task.isCancelled else { break }
                 do {
+                    // Update the formula database before checking so results
+                    // reflect the latest available versions, not a stale local cache.
+                    try? await brewService.update(onOutput: { _ in })
+                    let now = Date()
+                    lastBrewUpdateDate = now
+                    UserDefaults.standard.set(now.timeIntervalSince1970, forKey: AppSettingsKeys.lastBrewUpdate)
                     let previousCount = outdatedPackages.count
                     outdatedPackages = try await brewService.listOutdated()
                     reconcileOutdatedStatus()

@@ -105,7 +105,7 @@ struct MenuBarView: View {
                         Image(systemName: "arrow.clockwise")
                         Text("Check for Updates")
                         Spacer()
-                        if let checked = viewModel.lastOutdatedCheck {
+                        if let checked = viewModel.lastOutdatedCheck, Date().timeIntervalSince(checked) >= 60 {
                             Text(RelativeDateTimeFormatter().localizedString(for: checked, relativeTo: Date()))
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
