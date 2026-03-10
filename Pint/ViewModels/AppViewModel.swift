@@ -601,8 +601,7 @@ final class AppViewModel {
     }
 
     func pin(_ package: BrewPackage) {
-        Task { [weak self] in
-            guard let self else { return }
+        Task { [self] in
             do {
                 try await brewService.pin(package.name)
                 if let idx = installedPackages.firstIndex(where: { $0.id == package.id }) {
@@ -615,8 +614,7 @@ final class AppViewModel {
     }
 
     func unpin(_ package: BrewPackage) {
-        Task { [weak self] in
-            guard let self else { return }
+        Task { [self] in
             do {
                 try await brewService.unpin(package.name)
                 if let idx = installedPackages.firstIndex(where: { $0.id == package.id }) {
