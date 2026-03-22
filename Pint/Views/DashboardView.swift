@@ -1,10 +1,3 @@
-//
-//  DashboardView.swift
-//  Pint
-//
-//  Created by Ajeet Yadav on 22/02/26.
-//
-
 import SwiftUI
 
 struct DashboardView: View {
@@ -12,129 +5,90 @@ struct DashboardView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
-                // Header
-                HStack(alignment: .bottom) {
-                    VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 24) {
+
+                // MARK: Header + Actions
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text("Dashboard")
-                            .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                        Text("Your Homebrew at a glance")
+                            .font(.system(.title, design: .rounded, weight: .bold))
+                        Text("Homebrew at a glance")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    HStack(spacing: 12) {
-                        Button {
-                            viewModel.updateBrew()
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "arrow.clockwise")
-                                Text("Update")
-                            }
-                            .font(.callout.weight(.medium))
+                    HStack(spacing: 8) {
+                        Button { viewModel.updateBrew() } label: {
+                            Label("Update", systemImage: "arrow.clockwise")
                         }
                         .buttonStyle(.bordered)
-                        .tint(.secondary)
                         .disabled(viewModel.isOperationRunning)
 
-                        Button {
-                            viewModel.autoRemove()
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "trash.slash.fill")
-                                Text("Autoremove")
-                            }
-                            .font(.callout.weight(.medium))
+                        Button { viewModel.autoRemove() } label: {
+                            Label("Autoremove", systemImage: "trash.slash")
                         }
                         .buttonStyle(.bordered)
-                        .tint(.secondary)
                         .disabled(viewModel.isOperationRunning)
-                        .help("Remove dependencies that are no longer needed by any installed package")
+                        .help("Remove dependencies no longer needed")
 
-                        Button {
-                            viewModel.cleanupCache()
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "sparkles")
-                                Text("Cleanup")
-                            }
-                            .font(.callout.weight(.medium))
+                        Button { viewModel.cleanupCache() } label: {
+                            Label("Cleanup", systemImage: "sparkles")
                         }
                         .buttonStyle(.bordered)
-                        .tint(.secondary)
                         .disabled(viewModel.isOperationRunning)
-                        .help("Remove old versions and cached downloads to free up disk space")
+                        .help("Remove old versions and cached downloads")
 
                         if !viewModel.outdatedPackages.isEmpty {
-                            Button {
-                                viewModel.upgradeAll()
-                            } label: {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "arrow.up.circle.fill")
-                                    Text("Upgrade All")
-                                }
-                                .font(.callout.weight(.semibold))
+                            Button { viewModel.upgradeAll() } label: {
+                                Label("Upgrade All", systemImage: "arrow.up.circle.fill")
+                                    .fontWeight(.semibold)
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(.orange)
                             .disabled(viewModel.isOperationRunning)
                         }
                     }
+                    .font(.callout)
                 }
                 .padding(.horizontal, 24)
 
-                // Stats Cards
-                LazyVGrid(columns: [
-                    GridItem(.flexible(), spacing: 16),
-                    GridItem(.flexible(), spacing: 16),
-                    GridItem(.flexible(), spacing: 16),
-                    GridItem(.flexible(), spacing: 16)
-                ], spacing: 16) {
-                    GradientStatCard(
-                        title: "Total",
-                        value: "\(viewModel.installedPackages.count)",
-                        icon: "shippingbox.fill",
-                        gradient: [Color(red: 0.2, green: 0.5, blue: 1.0), Color(red: 0.4, green: 0.7, blue: 1.0)]
-                    ) { viewModel.selectedNav = .installed; viewModel.installedFilter = nil }
-                    GradientStatCard(
-                        title: "Formulae",
-                        value: "\(viewModel.totalFormulae)",
-                        icon: "terminal.fill",
-                        gradient: [Color(red: 0.2, green: 0.8, blue: 0.5), Color(red: 0.4, green: 0.9, blue: 0.7)]
-                    ) { viewModel.selectedNav = .installed; viewModel.installedFilter = .formula }
-                    GradientStatCard(
-                        title: "Casks",
-                        value: "\(viewModel.totalCasks)",
-                        icon: "macwindow",
-                        gradient: [Color(red: 0.6, green: 0.3, blue: 0.9), Color(red: 0.8, green: 0.5, blue: 1.0)]
-                    ) { viewModel.selectedNav = .installed; viewModel.installedFilter = .cask }
-                    GradientStatCard(
+                // MARK: Stat Cards
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
+                    StatCard(title: "Total",    value: "\(viewModel.installedPackages.count)", icon: "shippingbox.fill", color: .blue) {
+                        viewModel.selectedNav = .installed; viewModel.installedFilter = nil
+                    }
+                    StatCard(title: "Formulae", value: "\(viewModel.totalFormulae)",           icon: "terminal.fill",     color: .green) {
+                        viewModel.selectedNav = .installed; viewModel.installedFilter = .formula
+                    }
+                    StatCard(title: "Casks",    value: "\(viewModel.totalCasks)",              icon: "macwindow",         color: .purple) {
+                        viewModel.selectedNav = .installed; viewModel.installedFilter = .cask
+                    }
+                    StatCard(
                         title: "Upgrades",
                         value: "\(viewModel.outdatedPackages.count)",
                         icon: "arrow.up.circle.fill",
-                        gradient: viewModel.outdatedPackages.isEmpty
-                            ? [.gray.opacity(0.5), .gray.opacity(0.3)]
-                            : [Color(red: 1.0, green: 0.5, blue: 0.1), Color(red: 1.0, green: 0.7, blue: 0.2)]
+                        color: viewModel.outdatedPackages.isEmpty ? .secondary : .orange
                     ) { viewModel.selectedNav = .upgrades }
                 }
                 .padding(.horizontal, 24)
 
-                // Stale formula database warning
+                // MARK: Stale database warning
                 if viewModel.isBrewUpdateStale {
-                    HStack(spacing: 10) {
-                        Image(systemName: "clock.badge.exclamationmark.fill")
+                    HStack(spacing: 12) {
+                        Image(systemName: "clock.badge.exclamationmark")
+                            .font(.title3)
                             .foregroundStyle(.yellow)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Formula database may be outdated")
                                 .font(.callout.weight(.medium))
-                            Text(viewModel.lastBrewUpdateDate.map { "Last updated \(RelativeDateTimeFormatter().localizedString(for: $0, relativeTo: Date()))" } ?? "Never updated")
+                            Text(viewModel.lastBrewUpdateDate.map {
+                                "Last updated \(RelativeDateTimeFormatter().localizedString(for: $0, relativeTo: Date()))"
+                            } ?? "Never updated")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Button {
-                            viewModel.updateBrew()
-                        } label: {
+                        Button { viewModel.updateBrew() } label: {
                             Label("Update Now", systemImage: "arrow.clockwise")
                                 .font(.caption.weight(.semibold))
                         }
@@ -145,164 +99,128 @@ struct DashboardView: View {
                     }
                     .padding(14)
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(.yellow.opacity(0.08))
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(.yellow.opacity(0.25), lineWidth: 1))
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.yellow.opacity(0.06))
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.yellow.opacity(0.2), lineWidth: 0.5))
                     )
                     .padding(.horizontal, 24)
                 }
 
-                // Outdated Packages Section
+                // MARK: Outdated packages
                 if !viewModel.outdatedPackages.isEmpty {
-                    VStack(alignment: .leading, spacing: 14) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.title3)
-                                .foregroundStyle(
-                                    LinearGradient(colors: [.orange, .red], startPoint: .top, endPoint: .bottom)
-                                )
-                            Text("Packages Ready to Upgrade")
-                                .font(.headline)
-                            Spacer()
-                            Text("\(viewModel.outdatedPackages.count)")
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(Capsule().fill(.orange.gradient))
-                        }
-
-                        ForEach(viewModel.outdatedPackages) { pkg in
-                            OutdatedPackageRow(package: pkg)
-                        }
-                    }
-                    .padding(20)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(.ultraThinMaterial)
-                            .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
-                    )
-                    .padding(.horizontal, 24)
-                }
-
-                // Recent Operations
-                if !viewModel.operationHistory.isEmpty {
-                    VStack(alignment: .leading, spacing: 14) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "clock.fill")
-                                .foregroundStyle(.blue.gradient)
-                            Text("Recent Operations")
-                                .font(.headline)
-                            Spacer()
-                        }
-
-                        ForEach(viewModel.operationHistory.prefix(5)) { op in
-                            HStack(spacing: 10) {
-                                ZStack {
-                                    Circle()
-                                        .fill(op.isSuccess
-                                            ? LinearGradient(colors: [.green, .mint], startPoint: .topLeading, endPoint: .bottomTrailing)
-                                            : LinearGradient(colors: [.red, .pink], startPoint: .topLeading, endPoint: .bottomTrailing)
-                                        )
-                                        .frame(width: 24, height: 24)
-                                    Image(systemName: op.isSuccess ? "checkmark" : "xmark")
-                                        .font(.system(size: 10, weight: .bold))
-                                        .foregroundStyle(.white)
+                    SectionCardWithBadge(icon: "arrow.up.circle.fill", iconColor: .orange, title: "Ready to Upgrade") {
+                        Text("\(viewModel.outdatedPackages.count)")
+                    } content: {
+                        VStack(spacing: 0) {
+                            ForEach(viewModel.outdatedPackages) { pkg in
+                                OutdatedPackageRow(package: pkg)
+                                if pkg.id != viewModel.outdatedPackages.last?.id {
+                                    Divider().padding(.leading, 12)
                                 }
-
-                                Text("brew \(op.command)")
-                                    .font(.system(.callout, design: .monospaced))
-                                Spacer()
-                                Text(op.packageName)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 3)
-                                    .background(Capsule().fill(.quaternary))
                             }
-                            .padding(.vertical, 2)
                         }
                     }
-                    .padding(20)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(.ultraThinMaterial)
-                            .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
-                    )
                     .padding(.horizontal, 24)
                 }
 
-                // Loading indicator
+                // MARK: Recent operations
+                if !viewModel.operationHistory.isEmpty {
+                    SectionCard(icon: "clock", iconColor: .blue, title: "Recent Operations") {
+                        VStack(spacing: 0) {
+                            ForEach(viewModel.operationHistory.prefix(5)) { op in
+                                HStack(spacing: 10) {
+                                    Image(systemName: op.isSuccess ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                        .foregroundStyle(op.isSuccess ? .green : .red)
+                                        .font(.system(size: 15))
+                                    Text("brew \(op.command)")
+                                        .font(.system(.callout, design: .monospaced))
+                                    Spacer()
+                                    Text(op.packageName)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .padding(.horizontal, 7)
+                                        .padding(.vertical, 2)
+                                        .background(Capsule().fill(Color(.controlColor)))
+                                }
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 16)
+                                if op.id != viewModel.operationHistory.prefix(5).last?.id {
+                                    Divider().padding(.leading, 40)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                }
+
+                // MARK: Loading
                 if viewModel.isLoadingInstalled || viewModel.isLoadingOutdated {
-                    HStack(spacing: 10) {
-                        ProgressView()
-                            .controlSize(.small)
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
                         Text("Loading packages…")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                     }
-                    .padding(16)
-                    .background(
-                        Capsule()
-                            .fill(.ultraThinMaterial)
-                    )
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.top, 8)
                 }
 
                 Spacer(minLength: 20)
             }
-            .padding(.top, 20)
+            .padding(.top, 24)
         }
     }
 }
 
-// MARK: - Gradient Stat Card
+// MARK: - Stat Card
 
-struct GradientStatCard: View {
+struct StatCard: View {
     let title: String
     let value: String
     let icon: String
-    let gradient: [Color]
+    let color: Color
     var action: (() -> Void)? = nil
 
     @State private var isHovered = false
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        Button {
-            action?()
-        } label: {
+        Button { action?() } label: {
             VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    Image(systemName: icon)
-                        .font(.title2)
-                        .foregroundStyle(.white.opacity(0.9))
+                HStack(alignment: .top) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(color.opacity(colorScheme.iconBgOpacity))
+                            .frame(width: 36, height: 36)
+                        Image(systemName: icon)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(color)
+                    }
                     Spacer()
                     if action != nil {
-                        Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.5))
+                        Image(systemName: "arrow.right")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.tertiary)
+                            .opacity(isHovered ? 1 : 0)
                     }
                 }
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(value)
-                        .font(.system(.title, design: .rounded, weight: .bold))
-                        .foregroundStyle(.white)
+                        .font(.system(.title2, design: .rounded, weight: .bold))
+                        .foregroundStyle(.primary)
                     Text(title)
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.75))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
-            .padding(18)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(LinearGradient(colors: gradient, startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .shadow(color: gradient.first?.opacity(0.3) ?? .clear, radius: isHovered ? 12 : 6, y: isHovered ? 6 : 3)
-            )
-            .scaleEffect(isHovered ? 1.03 : 1.0)
-            .animation(.easeInOut(duration: 0.2), value: isHovered)
-            .onHover { hovering in isHovered = hovering }
+            .padding(16)
+            .cardStyle()
+            .opacity(isHovered ? 0.85 : 1.0)
+            .animation(.easeOut(duration: 0.12), value: isHovered)
         }
         .buttonStyle(.plain)
         .disabled(action == nil)
+        .onHover { isHovered = $0 }
     }
 }
 
@@ -316,65 +234,45 @@ struct OutdatedPackageRow: View {
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Text(package.name)
-                        .font(.body.weight(.semibold))
+                        .font(.callout.weight(.semibold))
                     TypeBadge(type: package.type)
                 }
                 HStack(spacing: 6) {
                     Text(package.currentVersion ?? package.version)
                         .font(.system(.caption, design: .monospaced))
-                        .padding(.horizontal, 6)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 5)
                         .padding(.vertical, 2)
-                        .background(RoundedRectangle(cornerRadius: 4).fill(.red.opacity(0.12)))
+                        .background(RoundedRectangle(cornerRadius: 4).fill(Color(.controlColor)))
                     Image(systemName: "arrow.right")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.tertiary)
                     Text(package.latestVersion ?? "latest")
                         .font(.system(.caption, design: .monospaced))
-                        .padding(.horizontal, 6)
+                        .foregroundStyle(.green)
+                        .padding(.horizontal, 5)
                         .padding(.vertical, 2)
-                        .background(RoundedRectangle(cornerRadius: 4).fill(.green.opacity(0.12)))
+                        .background(RoundedRectangle(cornerRadius: 4).fill(.green.opacity(0.1)))
                 }
             }
             Spacer()
-            Button {
-                viewModel.upgrade(package)
-            } label: {
+            Button { viewModel.upgrade(package) } label: {
                 Label("Upgrade", systemImage: "arrow.up.circle")
                     .font(.caption.weight(.medium))
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
             .tint(.orange)
-            .opacity(isHovered ? 1 : 0.7)
             .disabled(viewModel.isOperationRunning)
+            .opacity(isHovered ? 1 : 0.6)
         }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(isHovered ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.clear))
-        )
-        .animation(.easeInOut(duration: 0.15), value: isHovered)
-        .onHover { hovering in isHovered = hovering }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .background(isHovered ? Color(.controlColor).opacity(0.5) : .clear)
+        .animation(.easeOut(duration: 0.1), value: isHovered)
+        .onHover { isHovered = $0 }
     }
 }
 
-// MARK: - Type Badge
-
-struct TypeBadge: View {
-    let type: PackageType
-
-    var body: some View {
-        Text(type == .formula ? "formula" : "cask")
-            .font(.system(.caption2, design: .rounded, weight: .bold))
-            .foregroundStyle(type == .formula ? .green : .purple)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 2)
-            .background(
-                Capsule()
-                    .fill(type == .formula ? .green.opacity(0.12) : .purple.opacity(0.12))
-            )
-    }
-}

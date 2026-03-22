@@ -1,14 +1,8 @@
-//
-//  SidebarView.swift
-//  Pint
-//
-//  Created by Ajeet Yadav on 22/02/26.
-//
-
 import SwiftUI
 
 struct SidebarView: View {
     @Environment(AppViewModel.self) private var viewModel
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         @Bindable var vm = viewModel
@@ -17,123 +11,107 @@ struct SidebarView: View {
             Section {
                 ForEach(NavigationItem.allCases) { item in
                     HStack(spacing: 10) {
+                        // Icon badge — solid tinted background, adapts to light/dark
                         ZStack {
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(iconGradient(for: item))
+                            RoundedRectangle(cornerRadius: 7)
+                                .fill(iconColor(for: item).opacity(colorScheme.iconBgOpacity))
                                 .frame(width: 28, height: 28)
                             Image(systemName: item.icon)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(.white)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(iconColor(for: item))
                         }
 
                         Text(item.rawValue)
-                            .font(.body.weight(.medium))
+                            .font(.body)
 
                         Spacer()
 
+                        // Upgrades badge — uses system accent for urgency
                         if item == .upgrades && !viewModel.outdatedPackages.isEmpty {
                             Text("\(viewModel.outdatedPackages.count)")
-                                .font(.caption2.weight(.bold))
+                                .font(.caption2.weight(.semibold))
                                 .foregroundStyle(.white)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(
-                                    Capsule()
-                                        .fill(
-                                            LinearGradient(
-                                                colors: [.orange, .red],
-                                                startPoint: .leading,
-                                                endPoint: .trailing
-                                            )
-                                        )
-                                )
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(Color.orange))
                         }
 
-                        if item == .installed {
+                        // Installed count badge — muted, informational
+                        if item == .installed && !viewModel.installedPackages.isEmpty {
                             Text("\(viewModel.installedPackages.count)")
-                                .font(.caption2.weight(.medium))
-                                .foregroundStyle(.secondary)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.primary)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(
-                                    Capsule()
-                                        .fill(.quaternary)
-                                )
+                                .background(Capsule().fill(Color(.controlColor)))
                         }
                     }
-                    .padding(.vertical, 3)
+                    .padding(.vertical, 2)
                     .tag(item)
                 }
             } header: {
-                HStack(spacing: 6) {
+                HStack(spacing: 5) {
                     Image(systemName: "mug.fill")
-                        .foregroundStyle(.orange.gradient)
+                        .foregroundStyle(.orange)
+                        .font(.caption)
                     Text("Pint")
-                        .font(.caption.weight(.bold))
+                        .font(.caption.weight(.semibold))
                         .textCase(.uppercase)
-                        .tracking(1.2)
+                        .tracking(1.0)
                         .foregroundStyle(.secondary)
                 }
-                .padding(.bottom, 4)
+                .padding(.bottom, 2)
             }
         }
         .listStyle(.sidebar)
-        .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 300)
+        .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 280)
         .safeAreaInset(edge: .bottom) {
-            VStack(spacing: 8) {
+            VStack(spacing: 0) {
                 Divider()
                 HStack(spacing: 8) {
                     if !viewModel.brewVersion.isEmpty {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 5) {
                             Circle()
                                 .fill(.green)
                                 .frame(width: 6, height: 6)
                             Text(viewModel.brewVersion)
-                                .font(.caption2.weight(.medium))
+                                .font(.caption2)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
                         }
                     }
                     Spacer()
                     SettingsLink {
-                        Image(systemName: "gearshape.fill")
+                        Image(systemName: "gearshape")
                             .font(.system(size: 13))
                             .foregroundStyle(.secondary)
                             .frame(width: 26, height: 26)
-                            .background(.quaternary.opacity(0.5))
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color(.controlColor))
+                            )
                     }
                     .buttonStyle(.plain)
                     .help("Settings")
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
             }
-            .padding(.horizontal, 14)
-            .padding(.bottom, 10)
         }
     }
 
-    private func iconGradient(for item: NavigationItem) -> LinearGradient {
+    private func iconColor(for item: NavigationItem) -> Color {
         switch item {
-        case .dashboard:
-            return LinearGradient(colors: [.blue, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .installed:
-            return LinearGradient(colors: [.green, .mint], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .services:
-            return LinearGradient(colors: [.teal, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .taps:
-            return LinearGradient(colors: [.orange, .red], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .quarantine:
-            return LinearGradient(colors: [.red, .orange], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .history:
-            return LinearGradient(colors: [.gray, .blue], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .upgrades:
-            return LinearGradient(colors: [.orange, .yellow], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .search:
-            return LinearGradient(colors: [.purple, .indigo], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .backup:
-            return LinearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .doctor:
-            return LinearGradient(colors: [.red, .pink], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .dashboard:  return .blue
+        case .installed:  return .green
+        case .services:   return .teal
+        case .taps:       return .orange
+        case .quarantine: return .red
+        case .history:    return .secondary
+        case .upgrades:   return .orange
+        case .search:     return .purple
+        case .backup:     return .indigo
+        case .doctor:     return .pink
         }
     }
 }

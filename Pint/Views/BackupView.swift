@@ -54,7 +54,7 @@ struct BackupView: View {
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
-                            .background(Capsule().fill(.quaternary))
+                            .background(Capsule().fill(Color(.controlColor)))
                     }
 
                     Text("Save your installed packages as a portable file to restore later or share across machines.")
@@ -103,11 +103,7 @@ struct BackupView: View {
                     }
                 }
                 .padding(20)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(.ultraThinMaterial)
-                        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
-                )
+                .cardStyle(cornerRadius: 16)
                 .padding(.horizontal, 24)
 
                 // Import Section
@@ -158,11 +154,7 @@ struct BackupView: View {
                     }
                 }
                 .padding(20)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(.ultraThinMaterial)
-                        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
-                )
+                .cardStyle(cornerRadius: 16)
                 .padding(.horizontal, 24)
 
                 Spacer(minLength: 20)
@@ -341,7 +333,7 @@ struct ImportPreviewSection: View {
                             if !entry.version.isEmpty {
                                 Text(entry.version)
                                     .font(.system(.caption2, design: .monospaced))
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(.secondary)
                             }
                         }
                         .padding(.vertical, 4)

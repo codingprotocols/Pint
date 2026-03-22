@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Pint is a native macOS SwiftUI app (macOS 14.0+) for managing Homebrew packages via a GUI. It wraps `brew` CLI operations in a modern interface with live streaming output, cancellable operations, and a menu bar popover.
+Pint is a native macOS SwiftUI app (macOS 26.2+) for managing Homebrew packages via a GUI. It wraps `brew` CLI operations in a modern interface with live streaming output, cancellable operations, and a menu bar popover.
 
 ## Build Commands
 
@@ -70,6 +70,8 @@ All brew processes inject `HOMEBREW_NO_AUTO_UPDATE=1` and a custom `PATH` that p
 
 `UnsafeMutableSendableBox<T>` (defined at the top of `ShellExecutor.swift`) is used for pipe data collection. All its members that touch `_value` are marked `nonisolated` or `nonisolated(unsafe)` so `readabilityHandler` callbacks (called off-MainActor) can access them despite the project-wide `-default-isolation=MainActor`.
 
+**Brew launch failure handling**: Both `run(_:)` and `runStreaming(_:onOutput:)` wrap `process.run()` in a `do/catch` that converts **any** launch failure (file not found, permission denied, sandbox block) into `ShellError.brewNotFound`. This prevents macOS/Foundation-level error strings (e.g. "The file 'brew' doesn't exist.") from surfacing in the UI.
+
 ### Homebrew Operations (`Services/BrewService.swift`)
 
 High-level brew CLI calls (list, install, uninstall, upgrade, outdated, info, pin, unpin, autoremove, taps, services, etc.). Uses `ShellExecutor.run` for JSON-returning commands and `ShellExecutor.runStreaming` for long-running operations that emit live output.
@@ -85,7 +87,8 @@ High-level brew CLI calls (list, install, uninstall, upgrade, outdated, info, pi
 - **`PackageDetailView`** — per-package detail: hero header, info cards, pin/unpin (formulae only), upgrade/uninstall actions, caveats, release notes from GitHub, personal notes editor, dependency tree sheet.
 - **`UpgradesView`** — lists outdated packages; distinguishes pinned formulae (shown with "Won't upgrade" label, excluded from Upgrade All count via `upgradablePackages`).
 - **`SearchView`** — live search with debounce (300 ms), popular suggestions when query is empty, multi-select bulk install mode.
-- **`ContentView`** — shows `BrewNotFoundView` when brew is absent. Detects `.notInstalled` vs `.pathNotConfigured(brewPath:)` via `BrewNotFoundReason` and shows tailored instructions including the `shellenv` setup step.
+- **`ContentView`** — on startup shows a spinner while brew availability is being checked (`isCheckingBrew = true`), then either shows `BrewNotFoundView` or the normal UI. `BrewNotFoundView` detects `.notInstalled` vs `.pathNotConfigured(brewPath:)` via `BrewNotFoundReason` and shows tailored instructions including the `shellenv` setup step.
+- **`Helpers/LiquidGlassModifier.swift`** — `ViewModifier` + `.liquidGlass(...)` extension that applies a frosted-glass look (material background, rounded clip, white border stroke, drop shadow). Used across sidebar, installed list, and dashboard for visual consistency.
 
 ### Key Design Constraints
 
@@ -99,3 +102,32 @@ High-level brew CLI calls (list, install, uninstall, upgrade, outdated, info, pi
 - **Task cancellation**: Running brew operations are stored as `Task` references in `OperationRunner` and cancelled via `.cancel()`, which propagates to `Process.terminate()` in `ShellExecutor`.
 - **UI lockout during operations**: `isOperationRunning` disables relevant UI elements to prevent concurrent brew invocations.
 - **Release notes**: GitHub API is unauthenticated. Rate-limit responses (403/429) return `nil` and are not cached. No GitHub token support.
+- **Brew availability check**: `AppViewModel` initialises `brewAvailable = false` and `isCheckingBrew = true`. `loadAll()` calls `ShellExecutor.discoverBrewPath()` which checks standard paths (`/opt/homebrew/bin/brew`, `/usr/local/bin/brew`, Linux prefix) then falls back to asking each available login shell (`zsh`, `bash`, `sh`) via `which brew`. The discovered path is cached so subsequent `resolveBrewPath()` calls (used by every brew command) are instant and work regardless of where the user installed brew. `loadInstalled()` and `loadOutdated()` also catch `ShellError.brewNotFound` defensively and set `brewAvailable = false` rather than showing an alert.
+
+---
+
+## Code Review Workflow
+
+For every issue or recommendation, explain the concrete tradeoffs, give an opinionated recommendation, and ask for input before assuming a direction.
+
+**Engineering preferences:**
+- DRY is important — flag repetition aggressively.
+- Well-tested code is non-negotiable; err toward more tests than fewer.
+- "Engineered enough" — not fragile/hacky, not prematurely abstracted.
+- Handle more edge cases, not fewer; thoughtfulness over speed.
+- Bias toward explicit over clever.
+
+**Review sections:**
+
+1. **Architecture** — system design, component boundaries, dependency graph, data flow, security.
+2. **Code quality** — organization, DRY violations, error handling gaps, technical debt, over/under engineering.
+3. **Tests** — coverage gaps, assertion strength, missing edge cases, untested failure modes.
+4. **Performance** — memory usage, caching opportunities, slow or high-complexity paths.
+
+**For each issue found:** describe the problem with file + line reference, present 2–3 options (including "do nothing"), specify effort/risk/impact/maintenance for each, give a recommended option mapped to the preferences above, then ask before proceeding.
+
+**Before starting a review, ask:**
+- **BIG CHANGE**: interactive, one section at a time, at most 4 top issues per section.
+- **SMALL CHANGE**: interactive, one question per section.
+
+**For each stage:** output explanation + pros/cons + opinionated recommendation, then use `AskUserQuestion`. Number issues, letter options (e.g. Issue 1 Option A). Recommended option is always listed first.

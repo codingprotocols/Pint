@@ -52,12 +52,12 @@ struct DoctorView: View {
                             .font(.system(.title, design: .rounded, weight: .bold))
                         Text("in cache")
                             .font(.caption)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.secondary.opacity(0.05))
+                .background(Color(.controlColor).opacity(0.5))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -75,7 +75,7 @@ struct DoctorView: View {
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.secondary.opacity(0.05))
+                .background(Color(.controlColor).opacity(0.5))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
             .padding(.horizontal, 24)
@@ -148,15 +148,19 @@ struct DoctorView: View {
         var currentType: DoctorOutputSection.SectionType = .info
         var currentLines: [String] = []
 
+        let hasContent = { (ls: [String]) in
+            ls.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        }
+
         for line in lines {
             if line.hasPrefix("Warning:") || line.hasPrefix("Error:") {
-                if !currentLines.isEmpty {
+                if hasContent(currentLines) {
                     sections.append(DoctorOutputSection(type: currentType, lines: currentLines))
                 }
                 currentType = line.hasPrefix("Warning:") ? .warning : .error
                 currentLines = [line]
             } else if line.contains("Your system is ready to brew.") {
-                if !currentLines.isEmpty {
+                if hasContent(currentLines) {
                     sections.append(DoctorOutputSection(type: currentType, lines: currentLines))
                 }
                 sections.append(DoctorOutputSection(type: .success, lines: [line]))
@@ -166,7 +170,7 @@ struct DoctorView: View {
             }
         }
 
-        if !currentLines.isEmpty {
+        if hasContent(currentLines) {
             sections.append(DoctorOutputSection(type: currentType, lines: currentLines))
         }
 
@@ -226,7 +230,7 @@ struct DoctorSection: View {
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(.white)
                 }
-                Text(section.type == .success ? "All Good!" : section.lines.first ?? "")
+                Text(section.type == .success ? "All Good!" : (section.lines.first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""))
                     .font(.body.weight(.semibold))
             }
 
@@ -239,10 +243,8 @@ struct DoctorSection: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.ultraThinMaterial)
-        )
+        .background(Color(.controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(

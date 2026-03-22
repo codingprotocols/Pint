@@ -80,8 +80,12 @@ struct ContentView: View {
             Text(viewModel.errorMessage ?? "An unknown error occurred.")
         }
         .overlay {
-            if !viewModel.brewAvailable {
+            if viewModel.isCheckingBrew {
+                Color(.windowBackgroundColor).ignoresSafeArea()
+                    .overlay(ProgressView().controlSize(.large))
+            } else if !viewModel.brewAvailable {
                 BrewNotFoundView(reason: viewModel.brewNotFoundReason) {
+                    viewModel.isCheckingBrew = true
                     viewModel.loadAll()
                 }
             }

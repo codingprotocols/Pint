@@ -14,14 +14,15 @@ struct SettingsView: View {
     @AppStorage(AppSettingsKeys.launchAtLogin) private var launchAtLogin = false
     @AppStorage(AppSettingsKeys.updateCheckInterval) private var updateCheckInterval = 3600
     @AppStorage(AppSettingsKeys.notificationsEnabled) private var notificationsEnabled = true
-    @AppStorage(AppSettingsKeys.githubToken) private var githubToken = ""
 
     var body: some View {
         Form {
             Section {
                 Toggle("Show in Menu Bar", isOn: $showMenuBarIcon)
                     .onChange(of: showMenuBarIcon) { _, newValue in
-                        if !newValue { NSApp.setActivationPolicy(.regular) }
+                        if !newValue {
+                            NSApp.setActivationPolicy(.regular)
+                        }
                     }
                 Toggle("Launch at Login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, newValue in
@@ -51,18 +52,9 @@ struct SettingsView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
 
-            Section {
-                SecureField("Paste token here…", text: $githubToken)
-                    .textFieldStyle(.roundedBorder)
-            } header: {
-                Label("GitHub API Token", systemImage: "key.fill")
-            } footer: {
-                Text("Optional. Raises release-notes rate limit from 60 → 5,000 requests/hr. Generate a token at github.com/settings/tokens (no scopes needed).")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
         }
         .formStyle(.grouped)
-        .frame(width: 440, height: 420)
+        .frame(width: 440, height: 320)
         .navigationTitle("Settings")
     }
 

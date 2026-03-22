@@ -88,11 +88,9 @@ struct SearchView: View {
                     }
                 }
                 .padding(14)
-                .background(
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(.ultraThinMaterial)
-                        .shadow(color: .purple.opacity(0.1), radius: 8, y: 4)
-                )
+                .background(Color(.textBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(.separatorColor), lineWidth: 0.5))
             }
             .padding(24)
 
@@ -103,13 +101,13 @@ struct SearchView: View {
                 VStack(spacing: 16) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 48))
-                        .foregroundStyle(.quaternary)
+                        .foregroundStyle(.tertiary)
                     Text("No results for \"\(viewModel.searchQuery)\"")
                         .font(.title3.weight(.medium))
                         .foregroundStyle(.secondary)
                     Text("Try a different search term")
                         .font(.callout)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                 }
                 Spacer()
             } else if viewModel.searchResults.isEmpty {
@@ -137,7 +135,8 @@ struct SearchView: View {
                     }
                     .padding(.horizontal, 24)
                     .padding(.vertical, 10)
-                    .background(.blue.opacity(0.07))
+                    .background(Color(.controlBackgroundColor))
+                    .overlay(alignment: .bottom) { Divider() }
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
@@ -264,7 +263,7 @@ struct PopularSuggestionsView: View {
                                     .foregroundStyle(.primary)
                                 Text("· \(notInstalled.count) not installed")
                                     .font(.caption)
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal, 4)
 
@@ -319,7 +318,7 @@ struct SearchResultRow: View {
                 } label: {
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                         .font(.title3)
-                        .foregroundStyle(isSelected ? AnyShapeStyle(Color.blue) : AnyShapeStyle(.quaternary))
+                        .foregroundStyle(isSelected ? AnyShapeStyle(Color.blue) : AnyShapeStyle(Color.secondary))
                 }
                 .buttonStyle(.plain)
             }
@@ -365,7 +364,7 @@ struct SearchResultRow: View {
             if !package.version.isEmpty {
                 Text(package.version)
                     .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
             }
 
             if selectionBinding == nil {

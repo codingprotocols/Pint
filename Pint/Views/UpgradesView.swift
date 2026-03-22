@@ -282,7 +282,7 @@ struct UpgradePackageRow: View {
                             if !release.publishedAt.isEmpty {
                                 Text(release.publishedAt)
                                     .font(.caption2)
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(.secondary)
                             }
 
                             Spacer()
@@ -303,15 +303,14 @@ struct UpgradePackageRow: View {
                     } else {
                         Text("No release notes available.")
                             .font(.caption)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(.secondary)
                             .padding(.vertical, 4)
                     }
                 }
                 .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(.ultraThinMaterial)
-                )
+                .background(Color(.controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(.separatorColor), lineWidth: 0.5))
                 .padding(.bottom, 4)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }

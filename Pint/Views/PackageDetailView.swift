@@ -216,7 +216,7 @@ struct PackageDetailView: View {
                     .padding(16)
                     .background(
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(.ultraThinMaterial)
+                            .fill(Color(.controlBackgroundColor))
                     )
                 } else if let release = releaseNote {
                     ReleaseNoteSection(release: release)
@@ -364,7 +364,7 @@ struct InfoCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(.ultraThinMaterial)
+                .fill(Color(.controlBackgroundColor))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
@@ -443,7 +443,7 @@ struct ReleaseNoteSection: View {
         .padding(18)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(.ultraThinMaterial)
+                .fill(Color(.controlBackgroundColor))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14)

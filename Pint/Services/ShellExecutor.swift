@@ -38,17 +38,64 @@ final class UnsafeMutableSendableBox<T>: @unchecked Sendable {
 /// Low-level shell command executor with support for streaming output.
 actor ShellExecutor {
 
-    /// Known locations where Homebrew may be installed.
-    private static let knownPaths = ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]
+    /// Standard Homebrew install locations (Apple Silicon first, then Intel).
+    private static let knownPaths = [
+        "/opt/homebrew/bin/brew",   // Apple Silicon
+        "/usr/local/bin/brew",      // Intel
+        "/home/linuxbrew/.linuxbrew/bin/brew", // Linux/custom prefix
+    ]
 
-    /// Resolve the path to the brew executable, or throw if not found.
-    static func resolveBrewPath() throws -> String {
-        for path in knownPaths {
-            if FileManager.default.fileExists(atPath: path) {
+    /// Cached brew path discovered at startup. Written once; read many times.
+    nonisolated(unsafe) private static var cachedBrewPath: String? = nil
+
+    /// Discover the brew executable across all known paths and via every available
+    /// login shell. Caches the result so subsequent calls are instant.
+    /// Returns the absolute path, or nil if brew cannot be found anywhere.
+    @discardableResult
+    static func discoverBrewPath() -> String? {
+        // Return cached path if it still exists on disk.
+        if let cached = cachedBrewPath, FileManager.default.fileExists(atPath: cached) {
+            return cached
+        }
+
+        // Check standard install locations.
+        for path in knownPaths where FileManager.default.fileExists(atPath: path) {
+            cachedBrewPath = path
+            return path
+        }
+
+        // Fall back to asking each available login shell where brew lives.
+        // Covers custom prefixes, nix setups, and unusual $HOME/.brew installs.
+        let shells = ["/bin/zsh", "/bin/bash", "/bin/sh"]
+        for shell in shells where FileManager.default.fileExists(atPath: shell) {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: shell)
+            process.arguments = ["-l", "-c", "which brew 2>/dev/null"]
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = Pipe()
+            guard (try? process.run()) != nil else { continue }
+            process.waitUntilExit()
+            let path = (String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !path.isEmpty && FileManager.default.fileExists(atPath: path) {
+                cachedBrewPath = path
                 return path
             }
         }
-        throw ShellError.brewNotFound
+
+        return nil
+    }
+
+    /// Resolve the brew path for use in Process, or throw if brew cannot be found.
+    static func resolveBrewPath() throws -> String {
+        guard let path = discoverBrewPath() else { throw ShellError.brewNotFound }
+        return path
+    }
+
+    /// Returns true if brew can be located anywhere on the system.
+    static func isBrewInstalled() -> Bool {
+        discoverBrewPath() != nil
     }
 
     /// Build a PATH string that mirrors the user's shell: Homebrew dirs first,
@@ -57,52 +104,26 @@ actor ShellExecutor {
         let brewPrefixes = ["/opt/homebrew/bin", "/opt/homebrew/sbin", "/usr/local/bin"]
         let systemFallbacks = ["/usr/bin", "/bin", "/usr/sbin", "/sbin"]
 
-        // Start with Homebrew paths at the front.
-        var components = brewPrefixes
+        // Prepend the directory of the discovered brew binary so brew's own
+        // helpers (e.g. git, curl) are found even on non-standard installs.
+        var components: [String] = []
+        if let brewPath = cachedBrewPath {
+            let dir = (brewPath as NSString).deletingLastPathComponent
+            if !components.contains(dir) { components.append(dir) }
+        }
+        components.append(contentsOf: brewPrefixes.filter { !components.contains($0) })
 
-        // Append existing entries that aren't already included.
         if let current = currentPATH {
             for entry in current.split(separator: ":").map(String.init) {
-                if !components.contains(entry) {
-                    components.append(entry)
-                }
+                if !components.contains(entry) { components.append(entry) }
             }
         } else {
-            // No PATH at all — add system fallbacks.
             for entry in systemFallbacks where !components.contains(entry) {
                 components.append(entry)
             }
         }
 
         return components.joined(separator: ":")
-    }
-
-    /// Quick, non-throwing check for whether brew is available at a known standard path.
-    static func isBrewInstalled() -> Bool {
-        return knownPaths.contains { FileManager.default.fileExists(atPath: $0) }
-    }
-
-    /// Fallback: try to locate brew via the user's login shell (zsh then bash).
-    /// Returns the resolved path if found outside the standard locations, otherwise nil.
-    static func findBrewViaShell() -> String? {
-        let shells = ["/bin/zsh", "/bin/bash"]
-        for shell in shells where FileManager.default.fileExists(atPath: shell) {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: shell)
-            process.arguments = ["-l", "-c", "which brew 2>/dev/null"]
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            process.standardError = Pipe()
-            try? process.run()
-            process.waitUntilExit()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            let path = String(data: data, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            if !path.isEmpty && FileManager.default.fileExists(atPath: path) {
-                return path
-            }
-        }
-        return nil
     }
 
     /// Run a brew command and return the full output when complete.
@@ -143,7 +164,12 @@ actor ShellExecutor {
             }
         }
 
-        try process.run()
+        do {
+            try process.run()
+        } catch {
+            // Any failure to launch the brew process means brew is not usable.
+            throw ShellError.brewNotFound
+        }
 
         // Wait for process to finish asynchronously (non-blocking).
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
@@ -261,7 +287,12 @@ actor ShellExecutor {
             }
         }
 
-        try process.run()
+        do {
+            try process.run()
+        } catch {
+            // Any failure to launch the brew process means brew is not usable.
+            throw ShellError.brewNotFound
+        }
 
         // Bridge Swift Task cancellation to Process termination.
         try await withTaskCancellationHandler {

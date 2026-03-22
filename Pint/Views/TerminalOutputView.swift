@@ -66,7 +66,7 @@ struct OperationBannerView: View {
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(.secondary)
                                     .frame(width: 24, height: 24)
-                                    .background(.quaternary.opacity(0.5))
+                                    .background(Color(.controlColor))
                                     .clipShape(RoundedRectangle(cornerRadius: 5))
                             }
                             .buttonStyle(.plain)
@@ -97,7 +97,7 @@ struct OperationBannerView: View {
                                         .font(.caption.weight(.semibold))
                                         .foregroundStyle(.secondary)
                                         .frame(width: 24, height: 24)
-                                        .background(.quaternary.opacity(0.5))
+                                        .background(Color(.controlColor))
                                         .clipShape(RoundedRectangle(cornerRadius: 5))
                                 }
                                 .buttonStyle(.plain)
@@ -121,7 +121,7 @@ struct OperationBannerView: View {
                                     .id("output-bottom")
                             }
                             .frame(height: 160)
-                            .background(.black.opacity(0.03))
+                            .background(Color(.textBackgroundColor))
                             .onChange(of: op.output) { _, _ in
                                 withAnimation(.easeOut(duration: 0.1)) {
                                     proxy.scrollTo("output-bottom", anchor: .bottom)

@@ -220,7 +220,8 @@ final class AppViewModel {
     var diskUsage: String = ""
     var taps: [String] = []
 
-    var brewAvailable: Bool = true
+    var brewAvailable: Bool = false
+    var isCheckingBrew: Bool = true
     var brewNotFoundReason: BrewNotFoundReason = .notInstalled
     var isLoadingInstalled: Bool = false
     var isLoadingOutdated: Bool = false
@@ -342,17 +343,15 @@ final class AppViewModel {
 
     func loadAll() {
         Task {
-            guard ShellExecutor.isBrewInstalled() else {
-                // Not at the standard paths — check if brew exists somewhere else via the shell.
-                if let shellPath = ShellExecutor.findBrewViaShell() {
-                    brewNotFoundReason = .pathNotConfigured(brewPath: shellPath)
-                } else {
-                    brewNotFoundReason = .notInstalled
-                }
+            // discoverBrewPath() checks standard paths + every login shell as fallback.
+            guard ShellExecutor.discoverBrewPath() != nil else {
+                brewNotFoundReason = .notInstalled
                 brewAvailable = false
+                isCheckingBrew = false
                 return
             }
             brewAvailable = true
+            isCheckingBrew = false
             isRefreshing = true
             defer { isRefreshing = false }
 
@@ -427,6 +426,8 @@ final class AppViewModel {
             }
             installedPackages = packages
             reconcileOutdatedStatus()
+        } catch let error as ShellError where error == .brewNotFound {
+            brewAvailable = false
         } catch {
             showError(error.localizedDescription)
         }
@@ -439,6 +440,8 @@ final class AppViewModel {
             outdatedPackages = try await brewService.listOutdated()
             reconcileOutdatedStatus()
             lastOutdatedCheck = Date()
+        } catch let error as ShellError where error == .brewNotFound {
+            brewAvailable = false
         } catch {
             showError(error.localizedDescription)
         }
