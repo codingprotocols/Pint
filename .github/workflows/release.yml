@@ -377,7 +377,7 @@ jobs:
                 <pubDate>{pubdate}</pubDate>
                 <enclosure
                   url="{dmg_url}"
-                  sparkle:edSignature="{sparkle_sig}"
+                  {sparkle_sig}
                   length="{dmg_size}"
                   type="application/octet-stream"
                 />
