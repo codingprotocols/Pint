@@ -26,6 +26,10 @@ final class MenuBarSettings {
         )
     }
 
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     @objc private func defaultsChanged() {
         let newValue = UserDefaults.standard.object(forKey: AppSettingsKeys.showMenuBarIcon) as? Bool ?? true
         guard isInserted != newValue else { return }

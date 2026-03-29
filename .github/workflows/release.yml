@@ -177,66 +177,61 @@ jobs:
           SPARKLE_SIG: ${{ steps.sparkle_sign.outputs.SPARKLE_SIG }}
           DMG_SIZE: ${{ steps.sparkle_sign.outputs.DMG_SIZE }}
         run: |
-          PUBDATE=$(date -u "+%a, %d %b %Y %H:%M:%S +0000")
-          DMG_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Pint-${VERSION}.dmg"
-          APPCAST_URL="https://${OWNER}.github.io/Pint/appcast.xml"
-          HOMEPAGE_URL="https://${OWNER}.github.io/Pint/appcast.xml"
+          python3 - <<'PYEOF'
+          import os
+          from datetime import datetime
 
-          NEW_ITEM=$(cat <<ITEM
-    <item>
-      <title>Version ${VERSION}</title>
-      <sparkle:version>${BUILD}</sparkle:version>
-      <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-      <pubDate>${PUBDATE}</pubDate>
-      <enclosure
-        url="${DMG_URL}"
-        sparkle:edSignature="${SPARKLE_SIG}"
-        length="${DMG_SIZE}"
-        type="application/octet-stream"
-      />
-    </item>
-          ITEM)
+          # Get values from environment variables
+          version = os.environ['VERSION']
+          build = os.environ['BUILD']
+          tag = os.environ['TAG']
+          owner = os.environ['OWNER']
+          sparkle_sig = os.environ['SPARKLE_SIG']
+          dmg_size = os.environ['DMG_SIZE']
+          repo = os.environ.get('GITHUB_REPOSITORY', 'Pint')
 
-          # Replace placeholder comment with new item + placeholder (so next
-          # release inserts above this one too)
-          python3 - <<PYEOF
-import re
+          pubdate = datetime.now().strftime("%a, %d %b %Y %H:%M:%S +0000")
+          dmg_url = f"https://github.com/{repo}/releases/download/{tag}/Pint-{version}.dmg"
+          appcast_url = f"https://{owner}.github.io/Pint/appcast.xml"
 
-with open('docs/appcast.xml', 'r') as f:
-    content = f.read()
+          new_item = f"""    <item>
+                <title>Version {version}</title>
+                <sparkle:version>{build}</sparkle:version>
+                <sparkle:shortVersionString>{version}</sparkle:shortVersionString>
+                <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+                <pubDate>{pubdate}</pubDate>
+                <enclosure
+                  url="{dmg_url}"
+                  sparkle:edSignature="{sparkle_sig}"
+                  length="{dmg_size}"
+                  type="application/octet-stream"
+                />
+              </item>"""
 
-new_block = """${NEW_ITEM}
-    <!-- APPCAST_ITEMS_PLACEHOLDER -->"""
+          with open('docs/appcast.xml', 'r') as f:
+              content = f.read()
 
-content = content.replace(
-    '<!-- APPCAST_ITEMS_PLACEHOLDER -->',
-    new_block
-)
+          new_block = f"{new_item}\n    <!-- APPCAST_ITEMS_PLACEHOLDER -->"
 
-# Also fix the <link> placeholder if it still has the template value
-content = content.replace(
-    'https://REPLACE_WITH_OWNER.github.io/Pint/appcast.xml',
-    '${APPCAST_URL}'
-)
+          # Insert the new item
+          content = content.replace('<!-- APPCAST_ITEMS_PLACEHOLDER -->', new_block)
 
-with open('docs/appcast.xml', 'w') as f:
-    f.write(content)
+          # Update the <link> template if needed
+          content = content.replace('https://REPLACE_WITH_OWNER.github.io/Pint/appcast.xml', appcast_url)
 
-print("appcast.xml updated")
-PYEOF
+          with open('docs/appcast.xml', 'w') as f:
+              f.write(content)
 
-      # ── Commit appcast.xml update ─────────────────────────────────────────
+          print(f"appcast.xml updated for version {version}")
+          PYEOF
 
       - name: Commit appcast.xml
         run: |
-          git config user.name  "github-actions[bot]"
+          git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/appcast.xml
           git commit -m "chore: update appcast.xml for ${{ steps.version.outputs.TAG }}"
           git push origin HEAD:main
-
-      # ── GitHub Release ─────────────────────────────────────────────────────
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
