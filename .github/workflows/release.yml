@@ -75,13 +75,42 @@ jobs:
             -derivedDataPath build \
             -arch arm64 -arch x86_64 \
             CODE_SIGN_IDENTITY="Developer ID Application" \
+            "CODE_SIGN_IDENTITY[sdk=macosx*]"="Developer ID Application" \
             CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGNING_REQUIRED=YES \
             CODE_SIGNING_ALLOWED=YES \
+            OTHER_CODE_SIGN_FLAGS="--timestamp" \
+            CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
             ONLY_ACTIVE_ARCH=NO \
             REPO_OWNER=${{ github.repository_owner }} \
             build
+
+      # Re-sign Sparkle's nested binaries with our Developer ID.
+      # Sparkle ships pre-signed with its own cert; Apple requires every binary
+      # inside the app to bear the *distributor's* Developer ID for notarization.
+      # Order is inside-out: deepest items first, app bundle last.
+      - name: Re-sign Sparkle nested components
+        run: |
+          APP_PATH="build/Build/Products/Release/Pint.app"
+          SPARKLE_B="$APP_PATH/Contents/Frameworks/Sparkle.framework/Versions/B"
+
+          for ITEM in \
+            "$SPARKLE_B/XPCServices/Downloader.xpc" \
+            "$SPARKLE_B/XPCServices/Installer.xpc" \
+            "$SPARKLE_B/Updater.app" \
+            "$SPARKLE_B/Autoupdate" \
+            "$SPARKLE_B/Sparkle" \
+            "$APP_PATH/Contents/Frameworks/Sparkle.framework"; do
+            codesign --force --sign "Developer ID Application" \
+              --options runtime --timestamp "$ITEM"
+          done
+
+          # Re-seal the top-level app bundle after modifying nested content
+          codesign --force --sign "Developer ID Application" \
+            --options runtime --timestamp \
+            --entitlements Pint/Pint.entitlements \
+            "$APP_PATH"
 
       - name: Create DMG
         id: dmg
