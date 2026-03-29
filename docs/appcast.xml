@@ -2,10 +2,22 @@
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
     <title>Pint Updates</title>
-    <link>https://REPLACE_WITH_OWNER.github.io/Pint/appcast.xml</link>
+    <link>https://codingprotocols.github.io/Pint/appcast.xml</link>
     <description>Pint changelog</description>
     <language>en</language>
     <!-- CI inserts new <item> entries above this comment on each release -->
+        <item>
+      <title>Version 1.1.1</title>
+      <sparkle:version>3</sparkle:version>
+      <sparkle:shortVersionString>1.1.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <pubDate>Sun, 29 Mar 2026 19:03:37 +0000</pubDate>
+      <enclosure
+        url="https://github.com/codingprotocols/Pint/releases/download/v1.1.1/Pint-1.1.1.dmg"
+        sparkle:edSignature="d7j//UXi0mzI6HcmFB7R7UHmzKFGJcQF4M6gj77ER2FYSAnRabn2F/CBkBEIbYtUIQumE5kmy+mdj6FP9hPLAw==" length="4956551"
+        type="application/octet-stream"
+      />
+    </item>
     <!-- APPCAST_ITEMS_PLACEHOLDER -->
   </channel>
 </rss>
