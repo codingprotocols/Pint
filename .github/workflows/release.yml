@@ -158,11 +158,30 @@ jobs:
           APPLE_ID_APP_PASSWORD: ${{ secrets.APPLE_ID_APP_PASSWORD }}
           APPLE_TEAM_ID:         ${{ secrets.APPLE_TEAM_ID }}
         run: |
+          # --output-format json lets us assert status == "Accepted" explicitly.
+          # notarytool can exit 0 with status "Invalid", which produces no ticket
+          # and causes stapler to fail with "Record not found" indefinitely.
           xcrun notarytool submit "${{ steps.dmg.outputs.DMG_PATH }}" \
             --apple-id "$APPLE_ID" \
             --password "$APPLE_ID_APP_PASSWORD" \
             --team-id "$APPLE_TEAM_ID" \
-            --wait
+            --wait \
+            --output-format json | tee notarize_result.json
+
+          STATUS=$(python3 -c "import json; print(json.load(open('notarize_result.json'))['status'])")
+          SUBMISSION_ID=$(python3 -c "import json; print(json.load(open('notarize_result.json'))['id'])")
+
+          if [ "$STATUS" != "Accepted" ]; then
+            echo "Notarization failed with status: $STATUS"
+            echo "Fetching Apple's rejection log for submission $SUBMISSION_ID..."
+            xcrun notarytool log "$SUBMISSION_ID" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_ID_APP_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID"
+            exit 1
+          fi
+
+          echo "Notarization accepted (submission $SUBMISSION_ID)"
 
       - name: Staple notarization ticket
         run: |
