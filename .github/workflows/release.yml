@@ -127,8 +127,6 @@ jobs:
           echo "=== Authority + runtime + entitlements ==="
           codesign --display --verbose=4 "$APP_PATH" 2>&1 | \
             grep -E "Authority|flags=|Entitlements"
-          echo "=== Gatekeeper assessment ==="
-          spctl --assess --type exec --verbose "$APP_PATH"
 
       - name: Create DMG
         id: dmg
@@ -254,6 +252,10 @@ jobs:
           done
 
           xcrun stapler validate "${{ steps.dmg.outputs.DMG_PATH }}"
+
+          # Verify Gatekeeper accepts the notarized + stapled DMG
+          spctl --assess --type open --context context:primary-signature \
+            --verbose "${{ steps.dmg.outputs.DMG_PATH }}"
 
       # ── Sparkle EdDSA signing ──────────────────────────────────────────────
       # Requires this GitHub secret:
