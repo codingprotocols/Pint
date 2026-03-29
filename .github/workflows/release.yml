@@ -179,7 +179,6 @@ jobs:
 
     outputs:
       sparkle_sig: ${{ steps.sparkle_sign.outputs.SPARKLE_SIG }}
-      dmg_size:    ${{ steps.sparkle_sign.outputs.DMG_SIZE }}
       dmg_sha256:  ${{ steps.staple.outputs.DMG_SHA256 }}
 
     steps:
@@ -298,8 +297,6 @@ jobs:
           chmod +x "$SIGN_UPDATE"
 
           DMG_PATH="${{ steps.dmg.outputs.DMG_PATH }}"
-          DMG_SIZE=$(wc -c < "$DMG_PATH" | tr -d ' ')
-
           # Write the private key to a temp file without a trailing newline
           KEYFILE=$(mktemp)
           printf '%s' "$SPARKLE_PRIVATE_KEY" > "$KEYFILE"
@@ -308,7 +305,6 @@ jobs:
           rm -f "$KEYFILE"
 
           echo "SPARKLE_SIG=$SIGNATURE" >> $GITHUB_OUTPUT
-          echo "DMG_SIZE=$DMG_SIZE"     >> $GITHUB_OUTPUT
           echo "Signature: $SIGNATURE"
 
       - name: Upload notarized DMG
@@ -351,7 +347,6 @@ jobs:
           BUILD:       ${{ needs.build.outputs.build }}
           TAG:         ${{ needs.build.outputs.tag }}
           SPARKLE_SIG: ${{ needs.notarize.outputs.sparkle_sig }}
-          DMG_SIZE:    ${{ needs.notarize.outputs.dmg_size }}
         run: |
           python3 - <<'PYEOF'
           import os
@@ -361,7 +356,6 @@ jobs:
           build       = os.environ['BUILD']
           tag         = os.environ['TAG']
           sparkle_sig = os.environ['SPARKLE_SIG']
-          dmg_size    = os.environ['DMG_SIZE']
           repo        = os.environ.get('GITHUB_REPOSITORY', 'Pint')
           owner       = repo.split('/')[0]
 
@@ -378,7 +372,6 @@ jobs:
                 <enclosure
                   url="{dmg_url}"
                   {sparkle_sig}
-                  length="{dmg_size}"
                   type="application/octet-stream"
                 />
               </item>"""
