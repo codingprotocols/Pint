@@ -45,8 +45,11 @@ Package.resolved
 *.swo
 *~
 
-# Gemini
+# AI assistant config files
+CLAUDE.md
 .gemini/
+.cursorrules
+.aider*
 
 # Project-specific dated artifacts
 Pint 20*/

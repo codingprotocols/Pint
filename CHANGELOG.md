@@ -2,6 +2,33 @@
 
 All notable changes to Pint will be documented in this file.
 
+## [1.1.3] — 2026-03-30
+
+### ✨ New Features
+- **Taps** — browse, add, and remove Homebrew taps from a dedicated sidebar section
+- **Services** — view and manage `brew services` (start, stop, restart) without leaving the app
+- **History** — persistent log of past operations with searchable output
+- **Package Pinning** — pin formulae to prevent them from being upgraded; pinned packages are clearly marked in Upgrades view
+- **Caveats** — package caveats are surfaced in the detail view so post-install instructions are never missed
+- **Popular Suggestions** — Search shows curated popular packages when the query is empty, making discovery faster
+- **Background Stale Detection** — the app detects when the local Homebrew index is stale and nudges you to refresh
+
+### 🎨 UI
+- **Liquid Glass** — shared `liquidGlass` modifier unifies the frosted-glass look across sidebar, installed list, and dashboard
+- Updated app icon
+
+### ⚡ Performance
+- Search lists are prefetched in the background so the first keystroke is instant
+- Case-insensitive filtering and stable sort order in Installed and Search views
+- Improved Homebrew path discovery — handles non-standard install locations and misconfigured shells more reliably
+
+### 🐛 Fixes
+- Fixed memory leak: `NSNotificationCenter` observer was not removed on dealloc
+- Fixed potential retain cycle in pin/unpin async tasks (strong self capture)
+- UI is now locked out during active brew operations to prevent concurrent invocations
+
+---
+
 ## [1.1.0] — 2026-02-23
 
 ### ✨ New Features
