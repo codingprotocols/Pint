@@ -166,18 +166,19 @@ jobs:
 
       - name: Staple notarization ticket
         run: |
-          # Give Apple's CloudKit servers ~30s to propagate the ticket
-          echo "Waiting for propagation..."
-          sleep 30
+          # notarytool --wait means Apple finished processing, but the CloudKit
+          # ticket still needs time to propagate before stapler can find it.
+          # Retry up to 10 times × 60s = ~10 min, which covers Apple's worst case.
+          echo "Waiting for CloudKit propagation..."
+          sleep 60
 
-          # Attempt to staple with retry logic for propagation delays
-          for i in {1..3}; do
+          for i in {1..10}; do
             xcrun stapler staple "${{ steps.dmg.outputs.DMG_PATH }}" && break || {
-              if [ $i -lt 3 ]; then
-                echo "Staple failed, retrying in 30s (attempt $i of 3)..."
-                sleep 30
+              if [ $i -lt 10 ]; then
+                echo "Staple attempt $i/10 failed (Record not found), retrying in 60s..."
+                sleep 60
               else
-                echo "Staple failed permanently after 3 attempts."
+                echo "Staple failed after 10 attempts (~10 min). CloudKit may be degraded."
                 exit 1
               fi
             }
