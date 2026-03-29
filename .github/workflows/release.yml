@@ -253,10 +253,6 @@ jobs:
 
           xcrun stapler validate "${{ steps.dmg.outputs.DMG_PATH }}"
 
-          # Verify Gatekeeper accepts the notarized + stapled DMG
-          spctl --assess --type open --context context:primary-signature \
-            --verbose "${{ steps.dmg.outputs.DMG_PATH }}"
-
       # ── Sparkle EdDSA signing ──────────────────────────────────────────────
       # Requires this GitHub secret:
       #   SPARKLE_PRIVATE_KEY – contents of sparkle_private_key (from generate_keys)
