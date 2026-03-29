@@ -405,9 +405,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git pull --rebase origin ${{ github.event.repository.default_branch }}
           git add docs/appcast.xml
           git commit -m "chore: update appcast.xml for ${{ needs.build.outputs.tag }}"
+          git pull --rebase origin ${{ github.event.repository.default_branch }}
           git push origin HEAD:${{ github.event.repository.default_branch }}
 
       - name: Create GitHub Release
