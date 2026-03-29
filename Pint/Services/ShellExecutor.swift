@@ -253,9 +253,16 @@ actor ShellExecutor {
     }
 
     /// Run a brew command with real-time streaming output via a callback.
-    /// Supports cancellation — if the calling Task is cancelled, the process is terminated.
+    /// Supports cancellation and an optional wall-clock timeout.
+    ///
+    /// - Parameters:
+    ///   - arguments: Arguments passed to the brew executable.
+    ///   - timeout: Maximum seconds to wait before terminating the process.
+    ///              Defaults to 10 minutes. Pass `.infinity` to disable.
+    ///   - onOutput: Called for each chunk of stdout/stderr as it arrives.
     static func runStreaming(
         _ arguments: [String],
+        timeout: TimeInterval = 600,
         onOutput: @escaping @Sendable (String) -> Void
     ) async throws {
         let brewPath = try resolveBrewPath()
@@ -294,24 +301,47 @@ actor ShellExecutor {
             throw ShellError.brewNotFound
         }
 
-        // Bridge Swift Task cancellation to Process termination.
-        try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                process.terminationHandler = { proc in
-                    outputPipe.fileHandleForReading.readabilityHandler = nil
-                    errorPipe.fileHandleForReading.readabilityHandler = nil
-                    // SIGTERM (exit 15) or interruption signals mean cancellation.
-                    if proc.terminationStatus == 15 || proc.terminationReason == .uncaughtSignal {
-                        continuation.resume(throwing: ShellError.cancelled)
-                    } else {
-                        continuation.resume()
+        // Race the process against the timeout.
+        // The first child task to finish wins; the other is cancelled.
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            // Task 1: wait for process completion, bridge Task cancellation → SIGTERM.
+            group.addTask {
+                try await withTaskCancellationHandler {
+                    try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                        process.terminationHandler = { proc in
+                            outputPipe.fileHandleForReading.readabilityHandler = nil
+                            errorPipe.fileHandleForReading.readabilityHandler = nil
+                            if proc.terminationStatus == 15 || proc.terminationReason == .uncaughtSignal {
+                                continuation.resume(throwing: ShellError.cancelled)
+                            } else {
+                                continuation.resume()
+                            }
+                        }
                     }
+                } onCancel: {
+                    if process.isRunning { process.terminate() }
                 }
             }
-        } onCancel: {
-            if process.isRunning {
-                process.terminate()
+
+            // Task 2: timeout watchdog.
+            if timeout.isFinite {
+                group.addTask {
+                    try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                    if process.isRunning { process.terminate() }
+                    throw ShellError.timedOut(command: "brew \(arguments.joined(separator: " "))",
+                                              after: timeout)
+                }
             }
+
+            // Wait for the first task to finish (success or failure).
+            // On success, cancel the timeout watchdog. On failure, propagate.
+            do {
+                try await group.next()
+            } catch {
+                group.cancelAll()
+                throw error
+            }
+            group.cancelAll()
         }
     }
 }
@@ -321,6 +351,7 @@ enum ShellError: LocalizedError, Equatable {
     case commandFailed(command: String, exitCode: Int32, stderr: String)
     case brewNotFound
     case cancelled
+    case timedOut(command: String, after: TimeInterval)
 
     var errorDescription: String? {
         switch self {
@@ -330,6 +361,9 @@ enum ShellError: LocalizedError, Equatable {
             return "Homebrew not found. Please install Homebrew first."
         case .cancelled:
             return "Operation was cancelled."
+        case .timedOut(let command, let after):
+            let minutes = Int(after / 60)
+            return "'\(command)' timed out after \(minutes) minute\(minutes == 1 ? "" : "s")."
         }
     }
 }

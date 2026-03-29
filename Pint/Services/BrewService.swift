@@ -38,6 +38,9 @@ protocol BrewServiceProtocol: AnyObject {
     func autoremove(onOutput: @escaping @Sendable (String) -> Void) async throws
     func installMultiple(_ names: [String], isCask: Bool, onOutput: @escaping @Sendable (String) -> Void) async throws
     func prefetchSearchLists() async
+    /// Evicts the formula and cask search-list cache so the next search reflects
+    /// the updated package database. Call after `brew update` completes.
+    func invalidateSearchCache() async
 }
 
 // MARK: - Codable Types (Homebrew JSON schema)
@@ -128,7 +131,7 @@ final class BrewService: BrewServiceProtocol {
         return packages.sorted { $0.name < $1.name }
     }
 
-    private func parseInstalledFormulae(_ json: String) -> [BrewPackage] {
+    func parseInstalledFormulae(_ json: String) -> [BrewPackage] {
         guard let data = json.data(using: .utf8) else { return [] }
         do {
             let output = try JSONDecoder().decode(BrewInfoOutput.self, from: data)
@@ -156,7 +159,7 @@ final class BrewService: BrewServiceProtocol {
         }
     }
 
-    private func parseInstalledCasks(_ output: String) -> [BrewPackage] {
+    func parseInstalledCasks(_ output: String) -> [BrewPackage] {
         output.components(separatedBy: "\n")
             .filter { !$0.isEmpty }
             .compactMap { line -> BrewPackage? in
@@ -171,8 +174,11 @@ final class BrewService: BrewServiceProtocol {
 
     func listOutdated() async throws -> [BrewPackage] {
         let output = try await ShellExecutor.run(["outdated", "--json=v2"])
-        guard let data = output.data(using: .utf8) else { return [] }
+        return parseOutdated(output)
+    }
 
+    func parseOutdated(_ json: String) -> [BrewPackage] {
+        guard let data = json.data(using: .utf8) else { return [] }
         do {
             let decoded = try JSONDecoder().decode(BrewOutdatedOutput.self, from: data)
             var packages: [BrewPackage] = []
@@ -217,6 +223,10 @@ final class BrewService: BrewServiceProtocol {
 
     func prefetchSearchLists() async {
         await apiClient.prefetchSearchLists()
+    }
+
+    func invalidateSearchCache() async {
+        await apiClient.invalidateSearchCache()
     }
 
     func getInfo(_ name: String, type: PackageType = .formula) async throws -> BrewPackage {

@@ -5,13 +5,51 @@
 //  Created by Ajeet Yadav on 22/02/26.
 //
 
+import Sparkle
 import SwiftUI
+
+// MARK: - Menu Bar Settings
+
+/// Separate @Observable model for menu bar visibility.
+/// Lives outside AppDelegate so @Observable tracking works cleanly in App.body.
+@Observable
+final class MenuBarSettings {
+    var isInserted: Bool =
+        UserDefaults.standard.object(forKey: AppSettingsKeys.showMenuBarIcon) as? Bool ?? true
+
+    init() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(defaultsChanged),
+            name: UserDefaults.didChangeNotification,
+            object: nil
+        )
+    }
+
+    @objc private func defaultsChanged() {
+        let newValue = UserDefaults.standard.object(forKey: AppSettingsKeys.showMenuBarIcon) as? Bool ?? true
+        guard isInserted != newValue else { return }
+        isInserted = newValue
+    }
+}
+
+// MARK: - App
 
 @main
 struct PintApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var viewModel = AppViewModel()
-    @AppStorage(AppSettingsKeys.showMenuBarIcon) private var showMenuBarIcon = true
+    @State private var menuBarSettings = MenuBarSettings()
+
+    /// Accessing menuBarSettings.isInserted here registers the @Observable
+    /// dependency, so App.body re-evaluates whenever isInserted changes.
+    private var menuBarBinding: Binding<Bool> {
+        let current = menuBarSettings.isInserted
+        return Binding(
+            get: { current },
+            set: { [menuBarSettings] in menuBarSettings.isInserted = $0 }
+        )
+    }
 
     var body: some Scene {
         WindowGroup(id: "main") {
@@ -20,22 +58,21 @@ struct PintApp: App {
                 .frame(minWidth: 900, minHeight: 600)
                 .onAppear {
                     appDelegate.viewModel = viewModel
-                    appDelegate.menuBarEnabled = showMenuBarIcon
-                }
-                .onChange(of: showMenuBarIcon) { _, newValue in
-                    appDelegate.menuBarEnabled = newValue
                 }
         }
         .windowStyle(.titleBar)
         .defaultSize(width: 1100, height: 720)
+        .commands {
+            CommandGroup(after: .appInfo) {
+                CheckForUpdatesView(updater: appDelegate.updaterController.updater)
+            }
+        }
 
-        // Settings window (⌘,)
         Settings {
             SettingsView()
         }
 
-        // Menu bar icon + popover
-        MenuBarExtra(isInserted: $showMenuBarIcon) {
+        MenuBarExtra(isInserted: menuBarBinding) {
             MenuBarView()
                 .environment(viewModel)
         } label: {
@@ -53,25 +90,33 @@ struct PintApp: App {
 
 // MARK: - App Delegate
 
-/// Handles window close → hide (when menu bar is active) and dock icon management.
 final class AppDelegate: NSObject, NSApplicationDelegate {
+
     var viewModel: AppViewModel?
-    var menuBarEnabled: Bool = true
+
+    /// Sparkle updater controller — started at launch, drives "Check for Updates…".
+    /// Initialised as a stored property so it lives for the app's lifetime.
+    let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true,
+        updaterDelegate: nil,
+        userDriverDelegate: nil
+    )
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.regular)
+        viewModel?.requestNotificationPermission()
+    }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        // Don't quit when closing the window if menu bar is active
+        let menuBarEnabled = UserDefaults.standard.object(forKey: AppSettingsKeys.showMenuBarIcon) as? Bool ?? true
         if menuBarEnabled {
-            // Hide from dock when all windows are closed
-            DispatchQueue.main.async {
-                NSApp.setActivationPolicy(.accessory)
-            }
+            DispatchQueue.main.async { NSApp.setActivationPolicy(.accessory) }
             return false
         }
         return true
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        // Re-show the window when clicking the dock icon
         if !flag {
             NSApp.setActivationPolicy(.regular)
             for window in NSApp.windows where window.canBecomeMain {
@@ -80,10 +125,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         return true
-    }
-
-    func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.regular)
-        viewModel?.requestNotificationPermission()
     }
 }

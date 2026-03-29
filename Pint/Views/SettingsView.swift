@@ -14,14 +14,19 @@ struct SettingsView: View {
     @AppStorage(AppSettingsKeys.launchAtLogin) private var launchAtLogin = false
     @AppStorage(AppSettingsKeys.updateCheckInterval) private var updateCheckInterval = 3600
     @AppStorage(AppSettingsKeys.notificationsEnabled) private var notificationsEnabled = true
+    @State private var menuBarJustEnabled = false
 
     var body: some View {
         Form {
             Section {
                 Toggle("Show in Menu Bar", isOn: $showMenuBarIcon)
                     .onChange(of: showMenuBarIcon) { _, newValue in
-                        if !newValue {
-                            NSApp.setActivationPolicy(.regular)
+                        if newValue {
+                            menuBarJustEnabled = true
+                        } else {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                NSApp.setActivationPolicy(.regular)
+                            }
                         }
                     }
                 Toggle("Launch at Login", isOn: $launchAtLogin)
@@ -56,6 +61,13 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 440, height: 320)
         .navigationTitle("Settings")
+        .onDisappear {
+            guard menuBarJustEnabled else { return }
+            menuBarJustEnabled = false
+            DispatchQueue.main.async {
+                NSApp.setActivationPolicy(.accessory)
+            }
+        }
     }
 
     private func configureLaunchAtLogin(enabled: Bool) {

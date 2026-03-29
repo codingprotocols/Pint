@@ -206,12 +206,31 @@ final class AppViewModel {
 
     // MARK: - Sub-objects
 
+    let nav: AppNavigationState
     let runner: OperationRunner
+
+    // MARK: - Navigation Forwarding
+    // Computed properties delegate to nav so all existing views compile unchanged.
+    // @Observable tracking flows through AppNavigationState's observation registrar.
+
+    var selectedNav: NavigationItem {
+        get { nav.selectedNav }
+        set { nav.selectedNav = newValue }
+    }
+    var installedFilter: PackageType? {
+        get { nav.installedFilter }
+        set { nav.installedFilter = newValue; updateFilteredInstalled() }
+    }
+    var installedSearchText: String {
+        get { nav.installedSearchText }
+        set { nav.installedSearchText = newValue; updateFilteredInstalled() }
+    }
 
     // MARK: - State
 
-    var selectedNav: NavigationItem = .dashboard
-    var installedPackages: [BrewPackage] = []
+    var installedPackages: [BrewPackage] = [] {
+        didSet { updateFilteredInstalled() }
+    }
     var outdatedPackages: [BrewPackage] = []
     var searchResults: [BrewPackage] = []
     var searchQuery: String = ""
@@ -254,10 +273,6 @@ final class AppViewModel {
         UserDefaults.standard.object(forKey: AppSettingsKeys.notificationsEnabled) as? Bool ?? true
     }
 
-    // Filters
-    var installedFilter: PackageType? = nil
-    var installedSearchText: String = ""
-
     // Metadata persistence
     private var metadata: [String: PackageMetadata] = [:]
 
@@ -273,10 +288,12 @@ final class AppViewModel {
     /// Pass concrete implementations in tests; leave nil for production defaults.
     init(
         brewService: (any BrewServiceProtocol)? = nil,
-        runner: OperationRunner? = nil
+        runner: OperationRunner? = nil,
+        nav: AppNavigationState? = nil
     ) {
         self.brewService = brewService ?? BrewService()
         self.runner = runner ?? OperationRunner()
+        self.nav = nav ?? AppNavigationState()
     }
 
     // MARK: - Forwarding Properties (backward-compatible proxies for views)
@@ -311,9 +328,14 @@ final class AppViewModel {
         }
     }
 
-    // MARK: - Computed
+    // MARK: - Cached Filtered List
 
-    var filteredInstalled: [BrewPackage] {
+    /// Pre-computed filtered+searched list; updated via `updateFilteredInstalled()` whenever
+    /// `installedPackages`, `installedFilter`, or `installedSearchText` change.
+    /// Stored rather than computed to avoid O(n) work on every SwiftUI body evaluation.
+    private(set) var filteredInstalled: [BrewPackage] = []
+
+    private func updateFilteredInstalled() {
         var list = installedPackages
         if let filter = installedFilter {
             list = list.filter { $0.type == filter }
@@ -321,8 +343,10 @@ final class AppViewModel {
         if !installedSearchText.isEmpty {
             list = list.filter { $0.name.localizedCaseInsensitiveContains(installedSearchText) }
         }
-        return list
+        filteredInstalled = list
     }
+
+    // MARK: - Computed
 
     var hasUpdates: Bool { !outdatedPackages.isEmpty }
     var totalFormulae: Int { installedPackages.filter { $0.type == .formula }.count }
@@ -392,6 +416,7 @@ final class AppViewModel {
                     // Update the formula database before checking so results
                     // reflect the latest available versions, not a stale local cache.
                     try? await brewService.update(onOutput: { _ in })
+                    await brewService.invalidateSearchCache()
                     let now = Date()
                     lastBrewUpdateDate = now
                     UserDefaults.standard.set(now.timeIntervalSince1970, forKey: AppSettingsKeys.lastBrewUpdate)
@@ -513,53 +538,54 @@ final class AppViewModel {
     }
 
     func cleanupCache() {
-        runBrewOperation(command: "cleanup", packageName: "Homebrew Cache") { [weak self] onOutput in
-            try await self?.brewService.cleanupCache(onOutput: onOutput)
-            await self?.loadDiskUsage()
+        runBrewOperation(command: "cleanup", packageName: "Homebrew Cache") { [self] onOutput in
+            try await brewService.cleanupCache(onOutput: onOutput)
+        } onComplete: { [self] in
+            await loadDiskUsage()
         }
     }
 
     // MARK: - Package Operations
 
     func install(_ package: BrewPackage) {
-        runBrewOperation(command: "install", package: package) { [weak self] onOutput in
-            try await self?.brewService.install(package.name, isCask: package.type == .cask, onOutput: onOutput)
+        runBrewOperation(command: "install", package: package) { [self] onOutput in
+            try await brewService.install(package.name, isCask: package.type == .cask, onOutput: onOutput)
         }
     }
 
     func upgrade(_ package: BrewPackage) {
-        runBrewOperation(command: "upgrade", package: package) { [weak self] onOutput in
-            try await self?.brewService.upgrade(package.name, isCask: package.type == .cask, onOutput: onOutput)
+        runBrewOperation(command: "upgrade", package: package) { [self] onOutput in
+            try await brewService.upgrade(package.name, isCask: package.type == .cask, onOutput: onOutput)
         }
     }
 
     func uninstall(_ package: BrewPackage) {
-        runBrewOperation(command: "uninstall", package: package) { [weak self] onOutput in
-            try await self?.brewService.uninstall(package.name, isCask: package.type == .cask, onOutput: onOutput)
+        runBrewOperation(command: "uninstall", package: package) { [self] onOutput in
+            try await brewService.uninstall(package.name, isCask: package.type == .cask, onOutput: onOutput)
         }
     }
 
     func bulkUninstall(_ packages: [BrewPackage]) {
-        runBrewOperation(command: "uninstall", packageName: "\(packages.count) packages") { [weak self] onOutput in
+        runBrewOperation(command: "uninstall", packageName: "\(packages.count) packages") { [self] onOutput in
             for pkg in packages {
                 onOutput("Uninstalling \(pkg.name)...\n")
-                try await self?.brewService.uninstall(pkg.name, isCask: pkg.type == .cask, onOutput: onOutput)
+                try await brewService.uninstall(pkg.name, isCask: pkg.type == .cask, onOutput: onOutput)
             }
         }
     }
 
     func bulkUpgrade(_ packages: [BrewPackage]) {
-        runBrewOperation(command: "upgrade", packageName: "\(packages.count) packages") { [weak self] onOutput in
+        runBrewOperation(command: "upgrade", packageName: "\(packages.count) packages") { [self] onOutput in
             for pkg in packages {
                 onOutput("Upgrading \(pkg.name)...\n")
-                try await self?.brewService.upgrade(pkg.name, isCask: pkg.type == .cask, onOutput: onOutput)
+                try await brewService.upgrade(pkg.name, isCask: pkg.type == .cask, onOutput: onOutput)
             }
         }
     }
 
     func upgradeAll() {
-        runBrewOperation(command: "upgrade --all", packageName: "All Packages") { [weak self] onOutput in
-            try await self?.brewService.upgradeAll(onOutput: onOutput)
+        runBrewOperation(command: "upgrade --all", packageName: "All Packages") { [self] onOutput in
+            try await brewService.upgradeAll(onOutput: onOutput)
         }
     }
 
@@ -572,18 +598,18 @@ final class AppViewModel {
 
         if formulaeNames.isEmpty {
             // Casks only
-            runBrewOperation(command: "install --cask", packageName: caskNames.joined(separator: " ")) { [weak self] onOutput in
-                try await self?.brewService.installMultiple(caskNames, isCask: true, onOutput: onOutput)
+            runBrewOperation(command: "install --cask", packageName: caskNames.joined(separator: " ")) { [self] onOutput in
+                try await brewService.installMultiple(caskNames, isCask: true, onOutput: onOutput)
             }
         } else if caskNames.isEmpty {
             // Formulae only
-            runBrewOperation(command: "install", packageName: formulaeNames.joined(separator: " ")) { [weak self] onOutput in
-                try await self?.brewService.installMultiple(formulaeNames, isCask: false, onOutput: onOutput)
+            runBrewOperation(command: "install", packageName: formulaeNames.joined(separator: " ")) { [self] onOutput in
+                try await brewService.installMultiple(formulaeNames, isCask: false, onOutput: onOutput)
             }
         } else {
             // Both types — install formulae first, then casks in onComplete
-            runBrewOperation(command: "install", packageName: formulaeNames.joined(separator: " ")) { [weak self] onOutput in
-                try await self?.brewService.installMultiple(formulaeNames, isCask: false, onOutput: onOutput)
+            runBrewOperation(command: "install", packageName: formulaeNames.joined(separator: " ")) { [self] onOutput in
+                try await brewService.installMultiple(formulaeNames, isCask: false, onOutput: onOutput)
             } onComplete: { [self] in
                 await self.loadInstalled()
                 await MainActor.run {
@@ -596,10 +622,10 @@ final class AppViewModel {
     }
 
     func autoRemove() {
-        runBrewOperation(command: "autoremove", packageName: "orphaned dependencies") { [weak self] onOutput in
-            try await self?.brewService.autoremove(onOutput: onOutput)
-        } onComplete: { [weak self] in
-            await self?.loadInstalled()
+        runBrewOperation(command: "autoremove", packageName: "orphaned dependencies") { [self] onOutput in
+            try await brewService.autoremove(onOutput: onOutput)
+        } onComplete: { [self] in
+            await loadInstalled()
         }
     }
 
@@ -630,9 +656,10 @@ final class AppViewModel {
     }
 
     func updateBrew() {
-        runBrewOperation(command: "update", packageName: "Homebrew") { [weak self] onOutput in
-            try await self?.brewService.update(onOutput: onOutput)
+        runBrewOperation(command: "update", packageName: "Homebrew") { [self] onOutput in
+            try await brewService.update(onOutput: onOutput)
         } onComplete: { [self] in
+            await brewService.invalidateSearchCache()
             let now = Date()
             await MainActor.run {
                 self.lastBrewUpdateDate = now
@@ -646,18 +673,18 @@ final class AppViewModel {
     // MARK: - Tap Operations
 
     func addTap(_ name: String) {
-        runBrewOperation(command: "tap", packageName: name) { [weak self] onOutput in
-            try await self?.brewService.addTap(name, onOutput: onOutput)
-        } onComplete: { [weak self] in
-            await self?.loadTaps()
+        runBrewOperation(command: "tap", packageName: name) { [self] onOutput in
+            try await brewService.addTap(name, onOutput: onOutput)
+        } onComplete: { [self] in
+            await loadTaps()
         }
     }
 
     func removeTap(_ name: String) {
-        runBrewOperation(command: "untap", packageName: name) { [weak self] onOutput in
-            try await self?.brewService.removeTap(name, onOutput: onOutput)
-        } onComplete: { [weak self] in
-            await self?.loadTaps()
+        runBrewOperation(command: "untap", packageName: name) { [self] onOutput in
+            try await brewService.removeTap(name, onOutput: onOutput)
+        } onComplete: { [self] in
+            await loadTaps()
         }
     }
 
@@ -760,13 +787,7 @@ final class AppViewModel {
         meta = PackageMetadata(isFavorite: !meta.isFavorite, notes: meta.notes)
         metadata[package.id] = meta
         saveMetadata()
-
-        if let index = installedPackages.firstIndex(where: { $0.id == package.id }) {
-            installedPackages[index].isFavorite = meta.isFavorite
-        }
-        if let index = searchResults.firstIndex(where: { $0.id == package.id }) {
-            searchResults[index].isFavorite = meta.isFavorite
-        }
+        applyMetadata(meta, to: package.id)
     }
 
     func updateNotes(_ package: BrewPackage, notes: String) {
@@ -774,12 +795,27 @@ final class AppViewModel {
         meta = PackageMetadata(isFavorite: meta.isFavorite, notes: notes)
         metadata[package.id] = meta
         saveMetadata()
+        applyMetadata(meta, to: package.id)
+    }
 
-        if let index = installedPackages.firstIndex(where: { $0.id == package.id }) {
+    private func applyMetadata(_ meta: PackageMetadata, to id: String) {
+        if let index = installedPackages.firstIndex(where: { $0.id == id }) {
+            installedPackages[index].isFavorite = meta.isFavorite
             installedPackages[index].notes = meta.notes
         }
-        if let index = searchResults.firstIndex(where: { $0.id == package.id }) {
+        if let index = searchResults.firstIndex(where: { $0.id == id }) {
+            searchResults[index].isFavorite = meta.isFavorite
             searchResults[index].notes = meta.notes
         }
+    }
+
+    // MARK: - Package Info Passthroughs
+
+    func getInfo(_ name: String, type: PackageType) async throws -> BrewPackage {
+        try await brewService.getInfo(name, type: type)
+    }
+
+    func getDependencyTree(_ name: String) async throws -> String {
+        try await brewService.getDependencyTree(name)
     }
 }
