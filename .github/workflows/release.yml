@@ -396,9 +396,11 @@ jobs:
           # Update the <link> template if needed
           content = content.replace('https://REPLACE_WITH_OWNER.github.io/Pint/appcast.xml', appcast_url)
 
-          # Validate XML is still well-formed before writing
+          # Validate XML is still well-formed before writing.
+          # Must encode to bytes first — ET.fromstring rejects the encoding="utf-8"
+          # declaration when given a str (already decoded); bytes form is correct.
           import xml.etree.ElementTree as ET
-          ET.fromstring(content)
+          ET.fromstring(content.encode('utf-8'))
 
           with open('docs/appcast.xml', 'w') as f:
               f.write(content)
