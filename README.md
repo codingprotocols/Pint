@@ -47,7 +47,9 @@ Browse, search, install, upgrade, and uninstall formulae and casks without touch
 
 ## Screenshots
 
-<!-- Add screenshots here -->
+| Dashboard | Search | Backup & Restore |
+|---|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Search](docs/screenshots/search.png) | ![Backup](docs/screenshots/backup.png) |
 
 ---
 
