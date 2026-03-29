@@ -46,11 +46,15 @@ The app follows a layered architecture: **Views → ViewModels → Services → 
 
 ### State Management
 
-`AppViewModel` (`ViewModels/AppViewModel.swift`) is the central `@Observable @MainActor` class. It holds all package/tap state and drives every view via the SwiftUI environment (`PintApp.swift`).
+`AppViewModel` (`ViewModels/AppViewModel.swift`) is the central `@Observable @MainActor` class. It holds all package/tap state and drives every view via the SwiftUI environment (`PintApp.swift`). It does **not** own the `showMenuBarIcon` setting — that belongs to `MenuBarSettings`.
 
 `OperationRunner` (defined near the top of `AppViewModel.swift`, before `AppViewModel`) owns the brew operation lifecycle: output buffering, history (capped at 20), task cancellation, and UserDefaults persistence. `AppViewModel` holds `let runner: OperationRunner` and exposes forwarding properties (`isOperationRunning`, `activeOperation`, `operationHistory`). The forwarding properties work reactively because `@Observable` cascades through nested `@Observable` objects.
 
 `OutputThrottler` is a private file-scope `@unchecked Sendable` class defined just above `OperationRunner`. It holds `nonisolated(unsafe) var buffer` and `nonisolated(unsafe) var lastUpdate` — the mutable state for the 10 Hz output throttle inside `OperationRunner.run`. It must be at file scope (not nested inside `OperationRunner`) so that `-default-isolation=MainActor` does not apply to its properties.
+
+`MenuBarSettings` (`PintApp.swift`) is a standalone `@Observable @MainActor` class that owns the `isInserted: Bool` flag for the menu bar extra. It observes `UserDefaults.didChangeNotification` (always posted on main thread) to stay in sync with `SettingsView`'s `@AppStorage` writes. It is stored as `@State private var menuBarSettings` in `PintApp` — **not** in `AppViewModel` and **not** in `AppDelegate`. `PintApp` exposes `menuBarBinding: Binding<Bool>` as a computed property; accessing `menuBarSettings.isInserted` inside that computed property (called from `App.body`) registers the `@Observable` dependency so `App.body` re-evaluates when the value changes.
+
+`AppDelegate` (`PintApp.swift`) is a plain `NSApplicationDelegate` (no `ObservableObject`, no `@Published`). It handles dock icon management and window-close behaviour. It reads UserDefaults directly in `applicationShouldTerminateAfterLastWindowClosed` — it does not own or mirror any reactive state.
 
 ### Dependency Injection
 
@@ -91,6 +95,21 @@ High-level brew CLI calls (list, install, uninstall, upgrade, outdated, info, pi
 - **`Helpers/LiquidGlassModifier.swift`** — `ViewModifier` + `.liquidGlass(...)` extension that applies a frosted-glass look (material background, rounded clip, white border stroke, drop shadow). Used across sidebar, installed list, and dashboard for visual consistency.
 
 ### Key Design Constraints
+
+- **App Sandbox disabled**: `ENABLE_APP_SANDBOX = NO` in both Debug and Release configs. The sandbox blocks `Process.run()`, preventing every `brew` invocation from succeeding. Do not re-enable it.
+
+- **`ObservableObject` + `@NSApplicationDelegateAdaptor` broken in Xcode 26**: With `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `AppDelegate: ObservableObject` does not expose `$appDelegate` and `@Published` does not reliably fire. Do not attempt `ObservableObject` on `AppDelegate`. Use the `MenuBarSettings` `@Observable` class pattern instead.
+
+- **`@Observable` dependency tracking in `App.body`**: `Binding(get: { obj.prop }, ...)` closures are **not** executed during body rendering, so they do **not** register `@Observable` dependencies. The correct pattern is to access the property directly in a computed property called from `body`:
+  ```swift
+  private var myBinding: Binding<Bool> {
+      let current = observableObj.someProp   // ← registers dependency
+      return Binding(get: { current }, set: { observableObj.someProp = $0 })
+  }
+  ```
+  When `someProp` changes, `App.body` re-evaluates, `myBinding` is recomputed with the new value, and SwiftUI updates the scene.
+
+- **`@AppStorage` in `App` struct unreliable**: `@AppStorage` in the `App` struct does not reliably re-evaluate `body` when written from a different scene (e.g. Settings) under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`. Use the `@Observable` + `UserDefaults.didChangeNotification` pattern instead.
 
 - **`-default-isolation=MainActor`**: All types in the project inherit `@MainActor` isolation unless explicitly annotated otherwise. Consequences:
   - Stored properties accessed from `@Sendable` closures or `readabilityHandler` callbacks must be `nonisolated(unsafe) var`.

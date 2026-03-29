@@ -11,6 +11,13 @@ struct PackageDetailView: View {
     let package: BrewPackage
     @Environment(AppViewModel.self) private var viewModel
     @State private var detailedPackage: BrewPackage?
+
+    /// Always reads the authoritative copy from the installed list so that
+    /// metadata changes (favorites, notes, pin state, outdated flag) are
+    /// reflected immediately without a view recreation.
+    private var livePackage: BrewPackage {
+        viewModel.installedPackages.first { $0.id == package.id } ?? package
+    }
     @State private var releaseNote: ReleaseNote?
     @State private var isLoadingRelease = false
     @State private var showDependencyTree = false
@@ -51,14 +58,14 @@ struct PackageDetailView: View {
                                 .font(.system(.title, design: .rounded, weight: .bold))
                             
                             Button {
-                                viewModel.toggleFavorite(package)
+                                viewModel.toggleFavorite(livePackage)
                             } label: {
-                                Image(systemName: package.isFavorite ? "heart.fill" : "heart")
-                                    .foregroundStyle(package.isFavorite ? .red : .secondary)
+                                Image(systemName: livePackage.isFavorite ? "heart.fill" : "heart")
+                                    .foregroundStyle(livePackage.isFavorite ? .red : .secondary)
                                     .font(.title2)
                             }
                             .buttonStyle(.plain)
-                            .help(package.isFavorite ? "Remove from favorites" : "Add to favorites")
+                            .help(livePackage.isFavorite ? "Remove from favorites" : "Add to favorites")
 
                             TypeBadge(type: package.type)
                         }
@@ -99,7 +106,7 @@ struct PackageDetailView: View {
                                 color: .secondary
                             )
                         }
-                        if package.isPinned {
+                        if livePackage.isPinned {
                             InfoCard(
                                 title: "Status",
                                 value: "Pinned",
@@ -117,7 +124,7 @@ struct PackageDetailView: View {
                     let isInstalled = viewModel.installedPackages.contains { $0.name == package.name }
 
                     if isInstalled {
-                        if package.isOutdated {
+                        if livePackage.isOutdated {
                             Button {
                                 viewModel.upgrade(package)
                             } label: {
@@ -158,7 +165,6 @@ struct PackageDetailView: View {
                             .buttonStyle(.bordered)
 
                             // Pin / Unpin — formulae only; casks do not support pinning
-                            let livePackage = viewModel.installedPackages.first { $0.id == package.id } ?? package
                             Button {
                                 if livePackage.isPinned {
                                     viewModel.unpin(livePackage)
@@ -255,8 +261,8 @@ struct PackageDetailView: View {
                     }
 
                     TextEditor(text: Binding(
-                        get: { package.notes },
-                        set: { viewModel.updateNotes(package, notes: $0) }
+                        get: { livePackage.notes },
+                        set: { viewModel.updateNotes(livePackage, notes: $0) }
                     ))
                     .font(.body)
                     .padding(8)
@@ -272,8 +278,7 @@ struct PackageDetailView: View {
             .padding(28)
         }
         .task {
-            let service = BrewService()
-            detailedPackage = try? await service.getInfo(package.name, type: package.type)
+            detailedPackage = try? await viewModel.getInfo(package.name, type: package.type)
 
             // Fetch release notes from GitHub
             let homepage = detailedPackage?.homepage ?? package.homepage
@@ -325,8 +330,7 @@ struct PackageDetailView: View {
     private func fetchTree() {
         isLoadingTree = true
         Task {
-            let service = BrewService()
-            dependencyTree = (try? await service.getDependencyTree(package.name)) ?? "Failed to load dependency tree."
+            dependencyTree = (try? await viewModel.getDependencyTree(package.name)) ?? "Failed to load dependency tree."
             isLoadingTree = false
         }
     }

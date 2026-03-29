@@ -7,67 +7,259 @@ on:
 
 jobs:
   build:
-    name: Build Pint
+    name: Build, Sign & Release Pint
     runs-on: macos-14
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Need full history so we can push the appcast.xml update back
+          fetch-depth: 0
 
       - name: Set up Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
 
-      - name: Build
+      # ── Code Signing ──────────────────────────────────────────────────────
+      # Requires these GitHub secrets:
+      #   DEVELOPER_ID_CERT_BASE64   – base64-encoded Developer ID Application .p12
+      #   DEVELOPER_ID_CERT_PASSWORD – password for the .p12
+      #   KEYCHAIN_PASSWORD          – any strong random string (just for CI keychain)
+
+      - name: Import Developer ID certificate
+        env:
+          CERT_B64: ${{ secrets.DEVELOPER_ID_CERT_BASE64 }}
+          CERT_PASS: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+          KC_PASS: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          echo "$CERT_B64" | base64 --decode -o certificate.p12
+          security create-keychain -p "$KC_PASS" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KC_PASS" build.keychain
+          security import certificate.p12 -k build.keychain \
+            -P "$CERT_PASS" -T /usr/bin/codesign
+          security set-key-partition-list \
+            -S apple-tool:,apple: -s -k "$KC_PASS" build.keychain
+          rm -f certificate.p12
+
+      # ── Build ──────────────────────────────────────────────────────────────
+
+      - name: Get version info
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"           # e.g. v1.2.0
+          VERSION="${TAG#v}"                        # e.g. 1.2.0
+          BUILD=$(grep -o 'CURRENT_PROJECT_VERSION = [0-9]*' \
+            Pint.xcodeproj/project.pbxproj | head -1 | awk '{print $3}')
+          echo "TAG=$TAG"        >> $GITHUB_OUTPUT
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "BUILD=$BUILD"    >> $GITHUB_OUTPUT
+          echo "OWNER=${{ github.repository_owner }}" >> $GITHUB_OUTPUT
+
+      - name: Build (signed, universal)
         run: |
           xcodebuild -project Pint.xcodeproj \
             -scheme Pint \
             -configuration Release \
             -derivedDataPath build \
             -arch arm64 -arch x86_64 \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM=${{ secrets.APPLE_TEAM_ID }} \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGNING_ALLOWED=YES \
             ONLY_ACTIVE_ARCH=NO \
+            REPO_OWNER=${{ github.repository_owner }} \
             build
-      - name: Package
-        run: |
-          APP_PATH=$(find build -name "Pint.app" -type d | head -1)
-          echo "Found app at: $APP_PATH"
-          
-          # Create output directory
-          mkdir -p release
-          
-          # Copy app bundle
-          cp -R "$APP_PATH" release/Pint.app
-          
-          # Create zip
-          cd release
-          zip -r -y Pint.zip Pint.app
-          
-          echo "Archive created: $(ls -lh Pint.zip)"
-      - name: Get version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: Create Release
+      # ── DMG creation ───────────────────────────────────────────────────────
+
+      - name: Create DMG
+        id: dmg
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          APP_PATH=$(find build -name "Pint.app" -type d | head -1)
+          echo "App at: $APP_PATH"
+          mkdir -p release
+
+          # Temporary read-write DMG
+          hdiutil create -volname "Pint" \
+            -srcfolder "$APP_PATH" \
+            -ov -format UDRW \
+            -fs HFS+ \
+            "release/Pint-rw.dmg"
+
+          # Convert to compressed read-only
+          hdiutil convert "release/Pint-rw.dmg" \
+            -format UDZO \
+            -o "release/Pint-${VERSION}.dmg"
+          rm "release/Pint-rw.dmg"
+
+          DMG_PATH="release/Pint-${VERSION}.dmg"
+          echo "DMG_PATH=$DMG_PATH" >> $GITHUB_OUTPUT
+          echo "DMG created: $(ls -lh $DMG_PATH)"
+
+      # ── Notarization ───────────────────────────────────────────────────────
+      # Requires these GitHub secrets:
+      #   APPLE_ID              – your Apple ID email
+      #   APPLE_ID_APP_PASSWORD – app-specific password (appleid.apple.com)
+      #   APPLE_TEAM_ID         – 10-char Team ID (e.g. Y3RSAVXTDA)
+
+      - name: Notarize DMG
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_APP_PASSWORD: ${{ secrets.APPLE_ID_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcrun notarytool submit "${{ steps.dmg.outputs.DMG_PATH }}" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_APP_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+      - name: Staple notarization ticket
+        run: |
+          xcrun stapler staple "${{ steps.dmg.outputs.DMG_PATH }}"
+          xcrun stapler validate "${{ steps.dmg.outputs.DMG_PATH }}"
+
+      # ── Sparkle EdDSA signing ──────────────────────────────────────────────
+      # Requires this GitHub secret:
+      #   SPARKLE_PRIVATE_KEY – contents of sparkle_private_key (from generate_keys)
+      #
+      # To generate keys locally (one-time setup):
+      #   brew install sparkle
+      #   /opt/homebrew/opt/sparkle/bin/generate_keys
+      # Copy the public key into Xcode build settings as INFOPLIST_KEY_SUPublicEDKey.
+      # Store the private key in the SPARKLE_PRIVATE_KEY GitHub secret.
+
+      - name: Download Sparkle tools
+        run: |
+          SPARKLE_VERSION="2.6.4"
+          curl -L --fail \
+            "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz" \
+            -o sparkle.tar.xz
+          mkdir -p sparkle_tools
+          tar -xf sparkle.tar.xz -C sparkle_tools
+          echo "sign_update path: $(find sparkle_tools -name sign_update)"
+
+      - name: Sign update with Sparkle EdDSA
+        id: sparkle_sign
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          SIGN_UPDATE=$(find sparkle_tools -name sign_update | head -1)
+          chmod +x "$SIGN_UPDATE"
+
+          DMG_PATH="${{ steps.dmg.outputs.DMG_PATH }}"
+          DMG_SIZE=$(wc -c < "$DMG_PATH" | tr -d ' ')
+
+          # Write the private key to a temp file (sign_update reads from file/stdin)
+          KEYFILE=$(mktemp)
+          echo "$SPARKLE_PRIVATE_KEY" > "$KEYFILE"
+
+          SIGNATURE=$("$SIGN_UPDATE" "$DMG_PATH" --ed-key-file "$KEYFILE")
+          rm -f "$KEYFILE"
+
+          echo "SPARKLE_SIG=$SIGNATURE"  >> $GITHUB_OUTPUT
+          echo "DMG_SIZE=$DMG_SIZE"      >> $GITHUB_OUTPUT
+          echo "Signature: $SIGNATURE"
+
+      # ── Update appcast.xml ────────────────────────────────────────────────
+
+      - name: Update appcast.xml
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          BUILD: ${{ steps.version.outputs.BUILD }}
+          TAG: ${{ steps.version.outputs.TAG }}
+          OWNER: ${{ steps.version.outputs.OWNER }}
+          SPARKLE_SIG: ${{ steps.sparkle_sign.outputs.SPARKLE_SIG }}
+          DMG_SIZE: ${{ steps.sparkle_sign.outputs.DMG_SIZE }}
+        run: |
+          python3 - <<'PYEOF'
+          import os
+          from datetime import datetime
+
+          # Get values from environment variables
+          version = os.environ['VERSION']
+          build = os.environ['BUILD']
+          tag = os.environ['TAG']
+          owner = os.environ['OWNER']
+          sparkle_sig = os.environ['SPARKLE_SIG']
+          dmg_size = os.environ['DMG_SIZE']
+          repo = os.environ.get('GITHUB_REPOSITORY', 'Pint')
+
+          pubdate = datetime.now().strftime("%a, %d %b %Y %H:%M:%S +0000")
+          dmg_url = f"https://github.com/{repo}/releases/download/{tag}/Pint-{version}.dmg"
+          appcast_url = f"https://{owner}.github.io/Pint/appcast.xml"
+
+          new_item = f"""    <item>
+                <title>Version {version}</title>
+                <sparkle:version>{build}</sparkle:version>
+                <sparkle:shortVersionString>{version}</sparkle:shortVersionString>
+                <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+                <pubDate>{pubdate}</pubDate>
+                <enclosure
+                  url="{dmg_url}"
+                  sparkle:edSignature="{sparkle_sig}"
+                  length="{dmg_size}"
+                  type="application/octet-stream"
+                />
+              </item>"""
+
+          with open('docs/appcast.xml', 'r') as f:
+              content = f.read()
+
+          new_block = f"{new_item}\n    <!-- APPCAST_ITEMS_PLACEHOLDER -->"
+
+          # Insert the new item
+          content = content.replace('<!-- APPCAST_ITEMS_PLACEHOLDER -->', new_block)
+
+          # Update the <link> template if needed
+          content = content.replace('https://REPLACE_WITH_OWNER.github.io/Pint/appcast.xml', appcast_url)
+
+          with open('docs/appcast.xml', 'w') as f:
+              f.write(content)
+
+          print(f"appcast.xml updated for version {version}")
+          PYEOF
+
+      - name: Commit appcast.xml
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/appcast.xml
+          git commit -m "chore: update appcast.xml for ${{ steps.version.outputs.TAG }}"
+          git push origin HEAD:main
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: Pint ${{ steps.version.outputs.VERSION }}
+          name: Pint ${{ steps.version.outputs.TAG }}
           body: |
-            ## Pint ${{ steps.version.outputs.VERSION }}
-            
+            ## Pint ${{ steps.version.outputs.TAG }}
+
             ### Installation
-            1. Download `Pint.zip` below
-            2. Unzip and drag `Pint.app` to `/Applications`
-            3. Right-click → **Open** (first time only)
-            
-            > **Requires:** macOS 14.0 (Sonoma) or later + [Homebrew](https://brew.sh)
-            
+            1. Download `Pint-${{ steps.version.outputs.VERSION }}.dmg` below
+            2. Open the DMG and drag `Pint.app` to `/Applications`
+            3. Launch — no "right-click → Open" required (notarized by Apple)
+
+            ### Auto-updates
+            Pint will notify you automatically when a new version is available
+            via Sparkle. Use **Pint → Check for Updates…** to check manually.
+
+            > **Requires:** macOS 15.0 (Sequoia) or later + [Homebrew](https://brew.sh)
+
             See [CHANGELOG.md](CHANGELOG.md) for full release notes.
-          files: release/Pint.zip
+          files: ${{ steps.dmg.outputs.DMG_PATH }}
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Cleanup ────────────────────────────────────────────────────────────
+
+      - name: Delete build keychain
+        if: always()
+        run: security delete-keychain build.keychain || true

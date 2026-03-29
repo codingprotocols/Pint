@@ -6,14 +6,36 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		ABCD0003SPARKLEBLD000003 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = ABCD0002SPARKLEPRD000002 /* Sparkle */; };
+		ABTE570C123456789000000C /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = ABTE570B123456789000000B /* XCTest.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		ABTE570A123456789000000A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AB8A74D92F4B795400969887 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AB8A74E02F4B795400969887;
+			remoteInfo = Pint;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		AB8A74E12F4B795400969887 /* Pint.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pint.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		ABTE57011234567890000001 /* PintTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PintTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		ABTE570B123456789000000B /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		AB8A74E32F4B795400969887 /* Pint */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Pint;
+			sourceTree = "<group>";
+		};
+		ABTE57021234567890000002 /* PintTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = PintTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -23,17 +45,36 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				ABCD0003SPARKLEBLD000003 /* Sparkle in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		ABTE57051234567890000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				ABTE570C123456789000000C /* XCTest.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		AB7F6AB42F70827C00AFC8B2 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				ABTE570B123456789000000B /* XCTest.framework */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		AB8A74D82F4B795400969887 = {
 			isa = PBXGroup;
 			children = (
 				AB8A74E32F4B795400969887 /* Pint */,
+				ABTE57021234567890000002 /* PintTests */,
 				AB8A74E22F4B795400969887 /* Products */,
+				AB7F6AB42F70827C00AFC8B2 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -41,6 +82,7 @@
 			isa = PBXGroup;
 			children = (
 				AB8A74E12F4B795400969887 /* Pint.app */,
+				ABTE57011234567890000001 /* PintTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -65,10 +107,31 @@
 			);
 			name = Pint;
 			packageProductDependencies = (
+				ABCD0002SPARKLEPRD000002 /* Sparkle */,
 			);
 			productName = Pint;
 			productReference = AB8A74E12F4B795400969887 /* Pint.app */;
 			productType = "com.apple.product-type.application";
+		};
+		ABTE57031234567890000003 /* PintTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = ABTE57081234567890000008 /* Build configuration list for PBXNativeTarget "PintTests" */;
+			buildPhases = (
+				ABTE57041234567890000004 /* Sources */,
+				ABTE57051234567890000005 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				ABTE57091234567890000009 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				ABTE57021234567890000002 /* PintTests */,
+			);
+			name = PintTests;
+			productName = PintTests;
+			productReference = ABTE57011234567890000001 /* PintTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -83,6 +146,10 @@
 					AB8A74E02F4B795400969887 = {
 						CreatedOnToolsVersion = 26.2;
 					};
+					ABTE57031234567890000003 = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = AB8A74E02F4B795400969887;
+					};
 				};
 			};
 			buildConfigurationList = AB8A74DC2F4B795400969887 /* Build configuration list for PBXProject "Pint" */;
@@ -95,11 +162,15 @@
 			mainGroup = AB8A74D82F4B795400969887;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
+			packageReferences = (
+				ABCD0001SPARKLEREF000001 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			productRefGroup = AB8A74E22F4B795400969887 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				AB8A74E02F4B795400969887 /* Pint */,
+				ABTE57031234567890000003 /* PintTests */,
 			);
 		};
 /* End PBXProject section */
@@ -122,7 +193,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		ABTE57041234567890000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		ABTE57091234567890000009 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AB8A74E02F4B795400969887 /* Pint */;
+			targetProxy = ABTE570A123456789000000A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		AB8A74EA2F4B795500969887 /* Debug */ = {
@@ -268,11 +354,13 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Pint;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_SUFeedURL = "https://$(REPO_OWNER).github.io/Pint/appcast.xml";
+				INFOPLIST_KEY_SUPublicEDKey = "REPLACE_WITH_YOUR_SPARKLE_PUBLIC_ED_KEY";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.2;
+				MARKETING_VERSION = 1.1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.codingprotocols.Pint;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -305,11 +393,13 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Pint;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_SUFeedURL = "https://$(REPO_OWNER).github.io/Pint/appcast.xml";
+				INFOPLIST_KEY_SUPublicEDKey = "REPLACE_WITH_YOUR_SPARKLE_PUBLIC_ED_KEY";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.2;
+				MARKETING_VERSION = 1.1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.codingprotocols.Pint;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -320,6 +410,46 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		ABTE57061234567890000006 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.codingprotocols.PintTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Pint.app/Contents/MacOS/Pint";
+			};
+			name = Debug;
+		};
+		ABTE57071234567890000007 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.codingprotocols.PintTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Pint.app/Contents/MacOS/Pint";
 			};
 			name = Release;
 		};
@@ -344,7 +474,35 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		ABTE57081234567890000008 /* Build configuration list for PBXNativeTarget "PintTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ABTE57061234567890000006 /* Debug */,
+				ABTE57071234567890000007 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		ABCD0001SPARKLEREF000001 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		ABCD0002SPARKLEPRD000002 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = ABCD0001SPARKLEREF000001 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = AB8A74D92F4B795400969887 /* Project object */;
 }

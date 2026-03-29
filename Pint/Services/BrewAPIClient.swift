@@ -19,6 +19,9 @@ protocol BrewAPIClientProtocol: Sendable {
     func fetchReleaseNotes(homepage: String) async -> ReleaseNote?
     /// Downloads and caches the formula and cask lists so the first search is instant.
     func prefetchSearchLists() async
+    /// Evicts the formula and cask search lists from the cache.
+    /// Call after `brew update` so the next search reflects the updated package database.
+    func invalidateSearchCache() async
 }
 
 // MARK: - Implementation
@@ -157,6 +160,12 @@ actor BrewAPIClient: BrewAPIClientProtocol {
         caskCache = nil
         releaseNoteCache.removeAll()
         logger.debug("All caches cleared (memory critical)")
+    }
+
+    func invalidateSearchCache() {
+        formulaCache = nil
+        caskCache = nil
+        logger.debug("Search cache invalidated after brew update")
     }
 
     /// Registers a one-time memory pressure observer that clears caches in proportion to severity.
