@@ -355,7 +355,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_SUFeedURL = "https://$(REPO_OWNER).github.io/Pint/appcast.xml";
-				INFOPLIST_KEY_SUPublicEDKey = "REPLACE_WITH_YOUR_SPARKLE_PUBLIC_ED_KEY";
+				INFOPLIST_KEY_SUPublicEDKey = "BORF/Uuc1fzb2CrIFHaYehHFUQ6DBQkJn6dAxPw3azw=";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -394,7 +394,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_SUFeedURL = "https://$(REPO_OWNER).github.io/Pint/appcast.xml";
-				INFOPLIST_KEY_SUPublicEDKey = "REPLACE_WITH_YOUR_SPARKLE_PUBLIC_ED_KEY";
+				INFOPLIST_KEY_SUPublicEDKey = "BORF/Uuc1fzb2CrIFHaYehHFUQ6DBQkJn6dAxPw3azw=";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
