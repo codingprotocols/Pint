@@ -140,10 +140,15 @@ final class OperationRunner {
                     capturedSelf.activeOperation?.output += "\n⚠️ Cancelled by user."
                 }
             } catch {
+                let desc = error.localizedDescription
+                let isLockError = desc.contains("has already locked")
+                let message = isLockError
+                    ? "\n⚠️ Homebrew is locked by another process. Please wait for it to finish or force-quit it and try again."
+                    : "\n❌ Error: \(desc)"
                 await MainActor.run {
                     capturedSelf.activeOperation?.isComplete = true
                     capturedSelf.activeOperation?.isSuccess = false
-                    capturedSelf.activeOperation?.output += "\n❌ Error: \(error.localizedDescription)"
+                    capturedSelf.activeOperation?.output += message
                 }
             }
 

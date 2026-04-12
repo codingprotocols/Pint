@@ -53,3 +53,6 @@ CLAUDE.md
 
 # Project-specific dated artifacts
 Pint 20*/
+
+# Git worktrees
+.worktrees/
