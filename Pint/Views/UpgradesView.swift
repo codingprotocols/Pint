@@ -66,12 +66,20 @@ struct UpgradesView: View {
                     .disabled(viewModel.isOperationRunning)
 
                     if !viewModel.upgradablePackages.isEmpty {
+                        let isUpgradingAll = viewModel.isOperationRunning &&
+                                             viewModel.activeOperation?.command == "upgrade --all"
                         Button {
                             viewModel.upgradeAll()
                         } label: {
                             HStack(spacing: 6) {
-                                Image(systemName: "arrow.up.circle.fill")
-                                Text("Upgrade All (\(viewModel.upgradablePackages.count))")
+                                if isUpgradingAll {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                    Text("Upgrading…")
+                                } else {
+                                    Image(systemName: "arrow.up.circle.fill")
+                                    Text("Upgrade All (\(viewModel.upgradablePackages.count))")
+                                }
                             }
                             .font(.callout.weight(.semibold))
                         }

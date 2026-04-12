@@ -228,6 +228,38 @@ final class AppViewModelTests: XCTestCase {
                        "Most recent operation must be at index 0")
     }
 
+    // MARK: - Lock error friendly message
+
+    func testUpgradeAll_lockError_showsFriendlyMessage() async throws {
+        let mock = MockBrewService()
+        mock.upgradeAllError = NSError(
+            domain: "brew",
+            code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "Command 'brew upgrade' failed (exit 1): Error: A 'brew upgrade' process has already locked /path/to/file.incomplete"]
+        )
+        let runner = OperationRunner()
+        let vm = AppViewModel(brewService: mock, runner: runner)
+
+        vm.upgradeAll()
+
+        // Poll until the operation completes (max 1 s).
+        for _ in 0..<50 {
+            if runner.activeOperation?.isComplete == true { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+
+        let output = runner.activeOperation?.output ?? ""
+        XCTAssertTrue(
+            output.contains("Homebrew is locked by another process"),
+            "Expected friendly lock message, got: \(output)"
+        )
+        XCTAssertFalse(
+            output.contains("❌ Error:"),
+            "Lock errors should not use the raw ❌ error format"
+        )
+        XCTAssertEqual(runner.activeOperation?.isSuccess, false)
+    }
+
     // MARK: - Helpers
 
     private func makeViewModel(

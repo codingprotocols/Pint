@@ -14,6 +14,7 @@ final class MockBrewService: BrewServiceProtocol {
     var stubbedInstalled: [BrewPackage] = []
     var stubbedOutdated: [BrewPackage] = []
     var shouldThrowBrewNotFound = false
+    var upgradeAllError: Error? = nil
 
     func listInstalled() async throws -> [BrewPackage] {
         if shouldThrowBrewNotFound { throw ShellError.brewNotFound }
@@ -29,7 +30,9 @@ final class MockBrewService: BrewServiceProtocol {
     }
     func install(_ name: String, isCask: Bool, onOutput: @escaping @Sendable (String) -> Void) async throws {}
     func upgrade(_ name: String, isCask: Bool, onOutput: @escaping @Sendable (String) -> Void) async throws {}
-    func upgradeAll(onOutput: @escaping @Sendable (String) -> Void) async throws {}
+    func upgradeAll(onOutput: @escaping @Sendable (String) -> Void) async throws {
+        if let error = upgradeAllError { throw error }
+    }
     func uninstall(_ name: String, isCask: Bool, onOutput: @escaping @Sendable (String) -> Void) async throws {}
     func update(onOutput: @escaping @Sendable (String) -> Void) async throws {}
     func cleanupCache(onOutput: @escaping @Sendable (String) -> Void) async throws {}

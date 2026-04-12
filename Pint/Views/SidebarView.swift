@@ -69,7 +69,15 @@ struct SidebarView: View {
             VStack(spacing: 0) {
                 Divider()
                 HStack(spacing: 8) {
-                    if !viewModel.brewVersion.isEmpty {
+                    if viewModel.isOperationRunning {
+                        HStack(spacing: 5) {
+                            ProgressView()
+                                .controlSize(.mini)
+                            Text("Running…")
+                                .font(.caption2)
+                                .foregroundStyle(.orange)
+                        }
+                    } else if !viewModel.brewVersion.isEmpty {
                         HStack(spacing: 5) {
                             Circle()
                                 .fill(.green)
