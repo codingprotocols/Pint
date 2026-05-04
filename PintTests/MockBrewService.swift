@@ -16,15 +16,12 @@ final class MockBrewService: BrewServiceProtocol {
     var shouldThrowBrewNotFound = false
     var upgradeAllError: Error? = nil
 
-    // Bug A tracking
     var installMultipleCalledNames: [[String]] = []
     var installMultipleCalledIsCask: [Bool] = []
 
-    // Bug E tracking
     var stubbedReleaseNote: ReleaseNote? = nil
     var fetchReleaseNotesCalledWith: String? = nil
 
-    // Round-2 tracking
     var listServicesCalled = false
     var listTapsCalled = false
 

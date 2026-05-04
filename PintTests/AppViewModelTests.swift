@@ -260,8 +260,6 @@ final class AppViewModelTests: XCTestCase {
         XCTAssertEqual(runner.activeOperation?.isSuccess, false)
     }
 
-    // MARK: - bulkInstallFromBackup (Bug A)
-
     func testBulkInstallFromBackup_formulaeOnly_allInstalledInOneBatch() async throws {
         let mock = MockBrewService()
         let runner = OperationRunner()
@@ -317,8 +315,6 @@ final class AppViewModelTests: XCTestCase {
         XCTAssertTrue(mock.installMultipleCalledNames.isEmpty)
     }
 
-    // MARK: - fetchReleaseNotes via AppViewModel (Bug E)
-
     func testFetchReleaseNotes_routedThroughService() async {
         let mock = MockBrewService()
         mock.stubbedReleaseNote = ReleaseNote(
@@ -343,7 +339,6 @@ final class AppViewModelTests: XCTestCase {
         XCTAssertNil(note)
     }
 
-    // MARK: - refreshCurrentView (.services) (Round-2 Bug 4)
 
     func testRefreshCurrentView_servicesNav_callsListServices() async throws {
         let mock = MockBrewService()
