@@ -233,21 +233,9 @@ struct BackupView: View {
         guard !toInstall.isEmpty else { return }
 
         isImporting = true
-        Task {
-            for entry in toInstall {
-                let pkg = BrewPackage(
-                    name: entry.name,
-                    type: entry.type == "cask" ? .cask : .formula
-                )
-                viewModel.install(pkg)
-                // Small delay between installs to not overwhelm
-                try? await Task.sleep(for: .milliseconds(500))
-            }
-            await MainActor.run {
-                isImporting = false
-                withAnimation { showImportPreview = false }
-            }
-        }
+        viewModel.bulkInstallFromBackup(toInstall)
+        isImporting = false
+        withAnimation { showImportPreview = false }
     }
 }
 

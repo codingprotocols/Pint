@@ -41,6 +41,9 @@ protocol BrewServiceProtocol: AnyObject {
     /// Evicts the formula and cask search-list cache so the next search reflects
     /// the updated package database. Call after `brew update` completes.
     func invalidateSearchCache() async
+    /// Fetches the latest GitHub release notes for a package homepage.
+    /// Returns nil when unavailable or rate-limited.
+    func fetchReleaseNotes(homepage: String) async -> ReleaseNote?
 }
 
 // MARK: - Codable Types (Homebrew JSON schema)
@@ -379,6 +382,12 @@ final class BrewService: BrewServiceProtocol {
 
     func autoremove(onOutput: @escaping @Sendable (String) -> Void) async throws {
         try await ShellExecutor.runStreaming(["autoremove"], onOutput: onOutput)
+    }
+
+    // MARK: - Release Notes
+
+    func fetchReleaseNotes(homepage: String) async -> ReleaseNote? {
+        await apiClient.fetchReleaseNotes(homepage: homepage)
     }
 
     // MARK: - Bulk Install

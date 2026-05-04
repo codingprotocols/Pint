@@ -16,6 +16,18 @@ final class MockBrewService: BrewServiceProtocol {
     var shouldThrowBrewNotFound = false
     var upgradeAllError: Error? = nil
 
+    // Bug A tracking
+    var installMultipleCalledNames: [[String]] = []
+    var installMultipleCalledIsCask: [Bool] = []
+
+    // Bug E tracking
+    var stubbedReleaseNote: ReleaseNote? = nil
+    var fetchReleaseNotesCalledWith: String? = nil
+
+    // Round-2 tracking
+    var listServicesCalled = false
+    var listTapsCalled = false
+
     func listInstalled() async throws -> [BrewPackage] {
         if shouldThrowBrewNotFound { throw ShellError.brewNotFound }
         return stubbedInstalled
@@ -40,17 +52,30 @@ final class MockBrewService: BrewServiceProtocol {
     func doctor() async throws -> String { "" }
     func version() async throws -> String { "" }
     func getDependencyTree(_ name: String) async throws -> String { "" }
-    func listServices() async throws -> [BrewServiceItem] { [] }
+    func listServices() async throws -> [BrewServiceItem] {
+        listServicesCalled = true
+        return []
+    }
     func startService(_ name: String) async throws {}
     func stopService(_ name: String) async throws {}
     func restartService(_ name: String) async throws {}
-    func listTaps() async throws -> [String] { [] }
+    func listTaps() async throws -> [String] {
+        listTapsCalled = true
+        return []
+    }
     func addTap(_ name: String, onOutput: @escaping @Sendable (String) -> Void) async throws {}
     func removeTap(_ name: String, onOutput: @escaping @Sendable (String) -> Void) async throws {}
     func pin(_ name: String) async throws {}
     func unpin(_ name: String) async throws {}
     func autoremove(onOutput: @escaping @Sendable (String) -> Void) async throws {}
-    func installMultiple(_ names: [String], isCask: Bool, onOutput: @escaping @Sendable (String) -> Void) async throws {}
+    func installMultiple(_ names: [String], isCask: Bool, onOutput: @escaping @Sendable (String) -> Void) async throws {
+        installMultipleCalledNames.append(names)
+        installMultipleCalledIsCask.append(isCask)
+    }
     func prefetchSearchLists() async {}
     func invalidateSearchCache() async {}
+    func fetchReleaseNotes(homepage: String) async -> ReleaseNote? {
+        fetchReleaseNotesCalledWith = homepage
+        return stubbedReleaseNote
+    }
 }

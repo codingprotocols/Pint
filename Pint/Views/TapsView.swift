@@ -119,7 +119,7 @@ struct TapsView: View {
                         newTapName = ""
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(newTapName.isEmpty || viewModel.isOperationRunning)
+                    .disabled(newTapName.trimmingCharacters(in: .whitespaces).isEmpty || viewModel.isOperationRunning)
                 }
             }
             .padding()

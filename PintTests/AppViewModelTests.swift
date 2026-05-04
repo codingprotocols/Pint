@@ -260,6 +260,103 @@ final class AppViewModelTests: XCTestCase {
         XCTAssertEqual(runner.activeOperation?.isSuccess, false)
     }
 
+    // MARK: - bulkInstallFromBackup (Bug A)
+
+    func testBulkInstallFromBackup_formulaeOnly_allInstalledInOneBatch() async throws {
+        let mock = MockBrewService()
+        let runner = OperationRunner()
+        let vm = AppViewModel(brewService: mock, runner: runner)
+
+        let entries = [
+            BackupManager.PackageEntry(name: "wget", type: "formula", version: ""),
+            BackupManager.PackageEntry(name: "curl", type: "formula", version: ""),
+        ]
+        vm.bulkInstallFromBackup(entries)
+
+        for _ in 0..<100 {
+            if runner.activeOperation?.isComplete == true { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+
+        XCTAssertEqual(mock.installMultipleCalledNames.count, 1,
+                       "All formulae must be batched into a single installMultiple call")
+        XCTAssertEqual(Set(mock.installMultipleCalledNames[0]), Set(["wget", "curl"]))
+        XCTAssertFalse(mock.installMultipleCalledIsCask[0])
+    }
+
+    func testBulkInstallFromBackup_casksOnly_installedWithIsCaskTrue() async throws {
+        let mock = MockBrewService()
+        let runner = OperationRunner()
+        let vm = AppViewModel(brewService: mock, runner: runner)
+
+        let entries = [
+            BackupManager.PackageEntry(name: "firefox", type: "cask", version: ""),
+        ]
+        vm.bulkInstallFromBackup(entries)
+
+        for _ in 0..<100 {
+            if runner.activeOperation?.isComplete == true { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+
+        XCTAssertEqual(mock.installMultipleCalledNames.count, 1)
+        XCTAssertEqual(mock.installMultipleCalledNames[0], ["firefox"])
+        XCTAssertTrue(mock.installMultipleCalledIsCask[0])
+    }
+
+    func testBulkInstallFromBackup_emptyList_doesNotStartOperation() async throws {
+        let mock = MockBrewService()
+        let runner = OperationRunner()
+        let vm = AppViewModel(brewService: mock, runner: runner)
+
+        vm.bulkInstallFromBackup([])
+
+        try await Task.sleep(for: .milliseconds(50))
+
+        XCTAssertFalse(runner.isOperationRunning)
+        XCTAssertTrue(mock.installMultipleCalledNames.isEmpty)
+    }
+
+    // MARK: - fetchReleaseNotes via AppViewModel (Bug E)
+
+    func testFetchReleaseNotes_routedThroughService() async {
+        let mock = MockBrewService()
+        mock.stubbedReleaseNote = ReleaseNote(
+            tagName: "v2.0", title: "Release 2.0",
+            body: "Changes", publishedAt: "May 2026", htmlURL: "https://github.com/x/y/releases/tag/v2.0"
+        )
+        let vm = AppViewModel(brewService: mock)
+
+        let note = await vm.fetchReleaseNotes(homepage: "https://github.com/owner/repo")
+
+        XCTAssertEqual(note?.tagName, "v2.0")
+        XCTAssertEqual(mock.fetchReleaseNotesCalledWith, "https://github.com/owner/repo")
+    }
+
+    func testFetchReleaseNotes_noRelease_returnsNil() async {
+        let mock = MockBrewService()
+        mock.stubbedReleaseNote = nil
+        let vm = AppViewModel(brewService: mock)
+
+        let note = await vm.fetchReleaseNotes(homepage: "https://github.com/owner/repo")
+
+        XCTAssertNil(note)
+    }
+
+    // MARK: - refreshCurrentView (.services) (Round-2 Bug 4)
+
+    func testRefreshCurrentView_servicesNav_callsListServices() async throws {
+        let mock = MockBrewService()
+        let vm = AppViewModel(brewService: mock)
+        vm.selectedNav = .services
+
+        vm.refreshCurrentView()
+
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertTrue(mock.listServicesCalled,
+                      "refreshCurrentView() on .services must trigger loadServices()")
+    }
+
     // MARK: - Helpers
 
     private func makeViewModel(

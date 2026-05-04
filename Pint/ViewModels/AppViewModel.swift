@@ -213,6 +213,7 @@ final class AppViewModel {
 
     let nav: AppNavigationState
     let runner: OperationRunner
+    let servicesViewModel: ServicesViewModel
 
     // MARK: - Navigation Forwarding
     // Computed properties delegate to nav so all existing views compile unchanged.
@@ -296,9 +297,11 @@ final class AppViewModel {
         runner: OperationRunner? = nil,
         nav: AppNavigationState? = nil
     ) {
-        self.brewService = brewService ?? BrewService()
+        let svc = brewService ?? BrewService()
+        self.brewService = svc
         self.runner = runner ?? OperationRunner()
         self.nav = nav ?? AppNavigationState()
+        self.servicesViewModel = ServicesViewModel(brewService: svc)
     }
 
     // MARK: - Forwarding Properties (backward-compatible proxies for views)
@@ -326,6 +329,8 @@ final class AppViewModel {
             Task { await loadTaps() }
         case .search:
             Task { await performSearch() }
+        case .services:
+            Task { await servicesViewModel.loadServices() }
         case .doctor:
             Task { await loadDoctor() }
         default:
@@ -822,5 +827,22 @@ final class AppViewModel {
 
     func getDependencyTree(_ name: String) async throws -> String {
         try await brewService.getDependencyTree(name)
+    }
+
+    func fetchReleaseNotes(homepage: String) async -> ReleaseNote? {
+        await brewService.fetchReleaseNotes(homepage: homepage)
+    }
+
+    // MARK: - Backup Install
+
+    /// Install a list of backup entries as a single batched operation.
+    /// Converts entries to BrewPackage objects and delegates to bulkInstallFromSearch
+    /// so that formulae and casks each get one brew invocation — not N serial installs.
+    func bulkInstallFromBackup(_ entries: [BackupManager.PackageEntry]) {
+        guard !entries.isEmpty else { return }
+        let packages = entries.map { entry in
+            BrewPackage(name: entry.name, type: entry.type == "cask" ? .cask : .formula)
+        }
+        bulkInstallFromSearch(packages)
     }
 }

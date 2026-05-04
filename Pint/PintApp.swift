@@ -48,9 +48,8 @@ struct PintApp: App {
     /// Accessing menuBarSettings.isInserted here registers the @Observable
     /// dependency, so App.body re-evaluates whenever isInserted changes.
     private var menuBarBinding: Binding<Bool> {
-        let current = menuBarSettings.isInserted
-        return Binding(
-            get: { current },
+        Binding(
+            get: { self.menuBarSettings.isInserted },
             set: { [menuBarSettings] in menuBarSettings.isInserted = $0 }
         )
     }

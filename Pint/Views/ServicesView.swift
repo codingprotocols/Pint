@@ -8,8 +8,8 @@
 import SwiftUI
 
 struct ServicesView: View {
-    @State private var viewModel = ServicesViewModel()
     @Environment(AppViewModel.self) private var appViewModel
+    private var viewModel: ServicesViewModel { appViewModel.servicesViewModel }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -47,7 +47,10 @@ struct ServicesView: View {
                                 set: { _ in viewModel.toggleAutoRefresh() }
                             ))
 
-                            Picker("Interval", selection: $viewModel.refreshInterval) {
+                            Picker("Interval", selection: Binding(
+                                get: { viewModel.refreshInterval },
+                                set: { viewModel.refreshInterval = $0 }
+                            )) {
                                 Text("10s").tag(10)
                                 Text("30s").tag(30)
                                 Text("1m").tag(60)
