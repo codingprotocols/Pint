@@ -50,6 +50,9 @@ CLAUDE.md
 .gemini/
 .cursorrules
 .aider*
+.agent/
+.claude/
+graphify-out/
 
 # Project-specific dated artifacts
 Pint 20*/

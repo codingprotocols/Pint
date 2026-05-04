@@ -114,7 +114,7 @@ struct QuarantineView: View {
         Task {
             do {
                 // Command: xattr -rd com.apple.quarantine path
-                _ = try await ShellExecutor.runCustom("/usr/bin/xattr", arguments: ["-rd", "com.apple.quarantine", url.path])
+                _ = try await ShellExecutor.runCustom("/usr/bin/xattr", arguments: ["-rd", "com.apple.quarantine", url.path(percentEncoded: false)])
                 await MainActor.run {
                     isSuccess = true
                     resultMessage = "Successfully fixed \(url.lastPathComponent)!"

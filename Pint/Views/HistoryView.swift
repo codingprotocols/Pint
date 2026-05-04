@@ -49,7 +49,7 @@ struct HistoryView: View {
                 Spacer()
             } else {
                 List {
-                    ForEach(viewModel.operationHistory.reversed()) { operation in
+                    ForEach(viewModel.operationHistory) { operation in
                         HistoryRow(operation: operation)
                     }
                 }

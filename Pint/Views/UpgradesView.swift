@@ -335,7 +335,7 @@ struct UpgradePackageRow: View {
     private func loadReleaseNotes() {
         isLoadingRelease = true
         Task {
-            let note = await BrewAPIClient.shared.fetchReleaseNotes(homepage: homepage)
+            let note = await viewModel.fetchReleaseNotes(homepage: homepage)
             await MainActor.run {
                 releaseNote = note
                 isLoadingRelease = false

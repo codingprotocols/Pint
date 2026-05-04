@@ -284,7 +284,7 @@ struct PackageDetailView: View {
             let homepage = detailedPackage?.homepage ?? package.homepage
             if !homepage.isEmpty {
                 isLoadingRelease = true
-                releaseNote = await BrewAPIClient.shared.fetchReleaseNotes(homepage: homepage)
+                releaseNote = await viewModel.fetchReleaseNotes(homepage: homepage)
                 isLoadingRelease = false
             }
         }

@@ -213,6 +213,7 @@ final class AppViewModel {
 
     let nav: AppNavigationState
     let runner: OperationRunner
+    let servicesViewModel: ServicesViewModel
 
     // MARK: - Navigation Forwarding
     // Computed properties delegate to nav so all existing views compile unchanged.
@@ -296,9 +297,11 @@ final class AppViewModel {
         runner: OperationRunner? = nil,
         nav: AppNavigationState? = nil
     ) {
-        self.brewService = brewService ?? BrewService()
+        let svc = brewService ?? BrewService()
+        self.brewService = svc
         self.runner = runner ?? OperationRunner()
         self.nav = nav ?? AppNavigationState()
+        self.servicesViewModel = ServicesViewModel(brewService: svc)
     }
 
     // MARK: - Forwarding Properties (backward-compatible proxies for views)
@@ -326,6 +329,8 @@ final class AppViewModel {
             Task { await loadTaps() }
         case .search:
             Task { await performSearch() }
+        case .services:
+            Task { await servicesViewModel.loadServices() }
         case .doctor:
             Task { await loadDoctor() }
         default:
@@ -535,6 +540,8 @@ final class AppViewModel {
     }
 
     func loadDiskUsage() async {
+        isLoadingDiskUsage = true
+        defer { isLoadingDiskUsage = false }
         do {
             diskUsage = try await brewService.getDiskUsage()
         } catch {
@@ -612,11 +619,11 @@ final class AppViewModel {
                 try await brewService.installMultiple(formulaeNames, isCask: false, onOutput: onOutput)
             }
         } else {
-            // Both types — install formulae first, then casks in onComplete
+            // Both types — install formulae first, then casks in onComplete.
+            // Do NOT call loadInstalled() here; the cask operation's defaultOnComplete handles it.
             runBrewOperation(command: "install", packageName: formulaeNames.joined(separator: " ")) { [self] onOutput in
                 try await brewService.installMultiple(formulaeNames, isCask: false, onOutput: onOutput)
             } onComplete: { [self] in
-                await self.loadInstalled()
                 await MainActor.run {
                     self.runBrewOperation(command: "install --cask", packageName: caskNames.joined(separator: " ")) { [self] onOutput in
                         try await self.brewService.installMultiple(caskNames, isCask: true, onOutput: onOutput)
@@ -822,5 +829,22 @@ final class AppViewModel {
 
     func getDependencyTree(_ name: String) async throws -> String {
         try await brewService.getDependencyTree(name)
+    }
+
+    func fetchReleaseNotes(homepage: String) async -> ReleaseNote? {
+        await brewService.fetchReleaseNotes(homepage: homepage)
+    }
+
+    // MARK: - Backup Install
+
+    /// Install a list of backup entries as a single batched operation.
+    /// Converts entries to BrewPackage objects and delegates to bulkInstallFromSearch
+    /// so that formulae and casks each get one brew invocation — not N serial installs.
+    func bulkInstallFromBackup(_ entries: [BackupManager.PackageEntry]) {
+        guard !entries.isEmpty else { return }
+        let packages = entries.map { entry in
+            BrewPackage(name: entry.name, type: entry.type == "cask" ? .cask : .formula)
+        }
+        bulkInstallFromSearch(packages)
     }
 }

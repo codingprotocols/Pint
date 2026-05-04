@@ -272,22 +272,18 @@ actor ShellExecutor {
 
         var env = ProcessInfo.processInfo.environment
         env["HOMEBREW_NO_AUTO_UPDATE"] = "1"
+        env["HOMEBREW_NO_INSTALL_CLEANUP"] = "1"
         env["PATH"] = Self.buildBrewPATH(from: env["PATH"])
         process.environment = env
 
+        // Route stderr into the same pipe as stdout so there is only one
+        // readabilityHandler callback. Using two separate handlers fires on
+        // different kernel threads and races on the shared OutputThrottler buffer.
         let outputPipe = Pipe()
-        let errorPipe = Pipe()
         process.standardOutput = outputPipe
-        process.standardError = errorPipe
+        process.standardError = outputPipe
 
         outputPipe.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            if !data.isEmpty, let str = String(data: data, encoding: .utf8) {
-                onOutput(str)
-            }
-        }
-
-        errorPipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
             if !data.isEmpty, let str = String(data: data, encoding: .utf8) {
                 onOutput(str)
@@ -310,7 +306,6 @@ actor ShellExecutor {
                     try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                         process.terminationHandler = { proc in
                             outputPipe.fileHandleForReading.readabilityHandler = nil
-                            errorPipe.fileHandleForReading.readabilityHandler = nil
                             if proc.terminationStatus == 15 || proc.terminationReason == .uncaughtSignal {
                                 continuation.resume(throwing: ShellError.cancelled)
                             } else {

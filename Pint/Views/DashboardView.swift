@@ -38,7 +38,7 @@ struct DashboardView: View {
                         .disabled(viewModel.isOperationRunning)
                         .help("Remove old versions and cached downloads")
 
-                        if !viewModel.outdatedPackages.isEmpty {
+                        if !viewModel.upgradablePackages.isEmpty {
                             Button { viewModel.upgradeAll() } label: {
                                 Label("Upgrade All", systemImage: "arrow.up.circle.fill")
                                     .fontWeight(.semibold)
@@ -65,9 +65,9 @@ struct DashboardView: View {
                     }
                     StatCard(
                         title: "Upgrades",
-                        value: "\(viewModel.outdatedPackages.count)",
+                        value: "\(viewModel.upgradablePackages.count)",
                         icon: "arrow.up.circle.fill",
-                        color: viewModel.outdatedPackages.isEmpty ? .secondary : .orange
+                        color: viewModel.upgradablePackages.isEmpty ? .secondary : .orange
                     ) { viewModel.selectedNav = .upgrades }
                 }
                 .padding(.horizontal, 24)
