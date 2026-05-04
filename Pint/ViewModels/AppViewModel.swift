@@ -540,6 +540,8 @@ final class AppViewModel {
     }
 
     func loadDiskUsage() async {
+        isLoadingDiskUsage = true
+        defer { isLoadingDiskUsage = false }
         do {
             diskUsage = try await brewService.getDiskUsage()
         } catch {
@@ -617,11 +619,11 @@ final class AppViewModel {
                 try await brewService.installMultiple(formulaeNames, isCask: false, onOutput: onOutput)
             }
         } else {
-            // Both types — install formulae first, then casks in onComplete
+            // Both types — install formulae first, then casks in onComplete.
+            // Do NOT call loadInstalled() here; the cask operation's defaultOnComplete handles it.
             runBrewOperation(command: "install", packageName: formulaeNames.joined(separator: " ")) { [self] onOutput in
                 try await brewService.installMultiple(formulaeNames, isCask: false, onOutput: onOutput)
             } onComplete: { [self] in
-                await self.loadInstalled()
                 await MainActor.run {
                     self.runBrewOperation(command: "install --cask", packageName: caskNames.joined(separator: " ")) { [self] onOutput in
                         try await self.brewService.installMultiple(caskNames, isCask: true, onOutput: onOutput)

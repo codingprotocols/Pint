@@ -340,6 +340,32 @@ final class AppViewModelTests: XCTestCase {
     }
 
 
+    // MARK: - bulkInstallFromSearch mixed types (Round-3 Bug 3)
+
+    func testBulkInstallFromSearch_mixed_callsLoadInstalledOnce() async throws {
+        let mock = MockBrewService()
+        let runner = OperationRunner()
+        let vm = AppViewModel(brewService: mock, runner: runner)
+
+        let packages = [
+            BrewPackage.make(name: "wget",    type: .formula),
+            BrewPackage.make(name: "firefox", type: .cask),
+        ]
+        vm.bulkInstallFromSearch(packages)
+
+        // Wait for both operations (formulae then casks) to complete
+        for _ in 0..<200 {
+            if mock.installMultipleCalledNames.count == 2 && !runner.isOperationRunning { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertEqual(mock.listInstalledCallCount, 1,
+                       "loadInstalled() must be called exactly once after a mixed bulk install, not twice")
+    }
+
+    // MARK: - refreshCurrentView (.services)
+
     func testRefreshCurrentView_servicesNav_callsListServices() async throws {
         let mock = MockBrewService()
         let vm = AppViewModel(brewService: mock)

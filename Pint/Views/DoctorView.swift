@@ -138,7 +138,9 @@ struct DoctorView: View {
             if viewModel.doctorOutput.isEmpty {
                 Task { await viewModel.loadDoctor() }
             }
-            Task { await viewModel.loadDiskUsage() }
+            if viewModel.diskUsage.isEmpty {
+                Task { await viewModel.loadDiskUsage() }
+            }
         }
     }
 

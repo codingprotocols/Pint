@@ -25,7 +25,11 @@ final class MockBrewService: BrewServiceProtocol {
     var listServicesCalled = false
     var listTapsCalled = false
 
+    // Call counters
+    var listInstalledCallCount = 0
+
     func listInstalled() async throws -> [BrewPackage] {
+        listInstalledCallCount += 1
         if shouldThrowBrewNotFound { throw ShellError.brewNotFound }
         return stubbedInstalled
     }
