@@ -183,7 +183,7 @@ jobs:
 
     steps:
       - name: Download DMG artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: Pint-dmg
           path: release
@@ -327,7 +327,7 @@ jobs:
           fetch-depth: 1   # shallow clone is sufficient for a single-file commit
 
       - name: Download notarized DMG
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: Pint-dmg-notarized
           path: release
