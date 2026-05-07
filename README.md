@@ -49,7 +49,7 @@ Browse, search, install, upgrade, and uninstall formulae and casks without touch
 
 | Dashboard | Search | Backup & Restore |
 |---|---|---|
-| ![Dashboard](docs/screenshots/dashboard.png) | ![Search](docs/screenshots/search.png) | ![Backup](docs/screenshots/backup.png) |
+| ![Dashboard](resources/screenshots/dashboard.png) | ![Search](resources/screenshots/search.png) | ![Backup](resources/screenshots/backup.png) |
 
 ---
 
