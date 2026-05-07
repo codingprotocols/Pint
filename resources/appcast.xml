@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Pint Updates</title>
+    <link>https://codingprotocols.github.io/Pint/appcast.xml</link>
+    <description>Pint changelog</description>
+    <language>en</language>
+    <!-- CI inserts new <item> entries above this comment on each release -->
+        <item>
+      <title>Version 1.1.1</title>
+      <sparkle:version>3</sparkle:version>
+      <sparkle:shortVersionString>1.1.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <pubDate>Sun, 29 Mar 2026 19:03:37 +0000</pubDate>
+      <enclosure
+        url="https://github.com/codingprotocols/Pint/releases/download/v1.1.1/Pint-1.1.1.dmg"
+        sparkle:edSignature="d7j//UXi0mzI6HcmFB7R7UHmzKFGJcQF4M6gj77ER2FYSAnRabn2F/CBkBEIbYtUIQumE5kmy+mdj6FP9hPLAw==" length="4956551"
+        type="application/octet-stream"
+      />
+    </item>
+        <item>
+      <title>Version 1.1.4</title>
+      <sparkle:version>3</sparkle:version>
+      <sparkle:shortVersionString>1.1.4</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <pubDate>Sun, 29 Mar 2026 19:47:27 +0000</pubDate>
+      <enclosure
+        url="https://github.com/codingprotocols/Pint/releases/download/v1.1.4/Pint-1.1.4.dmg"
+        sparkle:edSignature="FoMRtIHNrfyOSEhcMuvn/uVhPRfQm2swRXa9UCvatnKLZ8SPRtrn9f15AD9omM/cxvr8zaaAA0aLHbhKr2H7Bw==" length="4956528"
+        type="application/octet-stream"
+      />
+    </item>
+        <item>
+      <title>Version 1.2.0</title>
+      <sparkle:version>3</sparkle:version>
+      <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <pubDate>Sun, 12 Apr 2026 18:15:05 +0000</pubDate>
+      <enclosure
+        url="https://github.com/codingprotocols/Pint/releases/download/v1.2.0/Pint-1.2.0.dmg"
+        sparkle:edSignature="Soan03ZOUKQrwBY1jyLkylZh5KV0IFE6jQqqqiqaubZWf2H03ZB+n3jJlBHGHiryNS6Tz7DvDvemFaYLhJs+Bw==" length="4974711"
+        type="application/octet-stream"
+      />
+    </item>
+    <!-- APPCAST_ITEMS_PLACEHOLDER -->
+  </channel>
+</rss>
