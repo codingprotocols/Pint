@@ -160,7 +160,7 @@ jobs:
           echo "SHA-256: $DMG_SHA256"
 
       - name: Upload DMG artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Pint-dmg
           path: release/${{ steps.dmg.outputs.DMG_NAME }}
@@ -308,7 +308,7 @@ jobs:
           echo "Signature: $SIGNATURE"
 
       - name: Upload notarized DMG
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Pint-dmg-notarized
           path: release/${{ needs.build.outputs.dmg_name }}
