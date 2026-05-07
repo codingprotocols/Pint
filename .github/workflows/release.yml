@@ -34,7 +34,7 @@ jobs:
           xcode-version: latest-stable
 
       - name: Cache derived data
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: build
           key: derived-data-${{ hashFiles('**/*.swift', 'Pint.xcodeproj/project.pbxproj') }}
@@ -271,7 +271,7 @@ jobs:
       # Store the private key in the SPARKLE_PRIVATE_KEY GitHub secret.
 
       - name: Cache Sparkle tools
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: sparkle_tools
           key: sparkle-2.9.0
