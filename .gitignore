@@ -60,5 +60,4 @@ Pint 20*/
 # Git worktrees
 .worktrees/
 
-docs/superpowers
-docs/plans/
+docs/
