@@ -376,7 +376,7 @@ jobs:
                 />
               </item>"""
 
-          with open('docs/appcast.xml', 'r') as f:
+          with open('resources/appcast.xml', 'r') as f:
               content = f.read()
 
           new_block = f"{new_item}\n    <!-- APPCAST_ITEMS_PLACEHOLDER -->"
@@ -395,7 +395,7 @@ jobs:
           import xml.etree.ElementTree as ET
           ET.fromstring(content.encode('utf-8'))
 
-          with open('docs/appcast.xml', 'w') as f:
+          with open('resources/appcast.xml', 'w') as f:
               f.write(content)
 
           print(f"appcast.xml updated for version {version}")
@@ -405,7 +405,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/appcast.xml
+          git add resources/appcast.xml
           git commit -m "chore: update appcast.xml for ${{ needs.build.outputs.tag }}"
           git pull --rebase origin ${{ github.event.repository.default_branch }}
           git push origin HEAD:${{ github.event.repository.default_branch }}
