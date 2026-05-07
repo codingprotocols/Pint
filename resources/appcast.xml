@@ -42,6 +42,18 @@
         type="application/octet-stream"
       />
     </item>
+        <item>
+      <title>Version 1.3.0</title>
+      <sparkle:version>4</sparkle:version>
+      <sparkle:shortVersionString>1.3.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <pubDate>Thu, 07 May 2026 16:38:33 +0000</pubDate>
+      <enclosure
+        url="https://github.com/codingprotocols/Pint/releases/download/v1.3.0/Pint-1.3.0.dmg"
+        sparkle:edSignature="kkHR3Bkrgf7/Snk7Sh64Kg1UWXvXN16tYeFJ1Gf8vhsyrCpu5k98GN+Vr8WyEIj55uZaul1o6TOGO4YKAJTNAg==" length="4965528"
+        type="application/octet-stream"
+      />
+    </item>
     <!-- APPCAST_ITEMS_PLACEHOLDER -->
   </channel>
 </rss>
