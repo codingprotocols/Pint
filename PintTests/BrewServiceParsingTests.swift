@@ -148,4 +148,37 @@ final class BrewServiceParsingTests: XCTestCase {
     func testParseOutdated_emptyArrays_returnsEmpty() {
         XCTAssertTrue(service.parseOutdated(#"{"formulae":[],"casks":[]}"#).isEmpty)
     }
+
+    // MARK: - Tap Info Parsing (brew 6 tap trust)
+
+    func testParseTapInfo_decodesOfficialAndTrusted() {
+        let json = """
+        [
+          {"name": "homebrew/core", "official": true, "trusted": true},
+          {"name": "localstack/tap", "official": false, "trusted": false},
+          {"name": "mongodb/brew", "official": false, "trusted": true}
+        ]
+        """
+
+        let taps = service.parseTapInfo(json)
+
+        XCTAssertEqual(taps, [
+            BrewTap(name: "homebrew/core", isOfficial: true, isTrusted: true),
+            BrewTap(name: "localstack/tap", isOfficial: false, isTrusted: false),
+            BrewTap(name: "mongodb/brew", isOfficial: false, isTrusted: true),
+        ])
+    }
+
+    func testParseTapInfo_missingTrustedField_defaultsToTrusted() {
+        // brew < 6 tap-info JSON has no "trusted" key; treat as trusted.
+        let json = #"[{"name": "homebrew/core", "official": true}]"#
+
+        let taps = service.parseTapInfo(json)
+
+        XCTAssertEqual(taps, [BrewTap(name: "homebrew/core", isOfficial: true, isTrusted: true)])
+    }
+
+    func testParseTapInfo_malformedJSON_returnsNil() {
+        XCTAssertNil(service.parseTapInfo("not json"))
+    }
 }

@@ -21,6 +21,7 @@ protocol BrewServiceProtocol: AnyObject {
     func upgradeAll(onOutput: @escaping @Sendable (String) -> Void) async throws
     func uninstall(_ name: String, isCask: Bool, onOutput: @escaping @Sendable (String) -> Void) async throws
     func update(onOutput: @escaping @Sendable (String) -> Void) async throws
+    func updateIfNeeded() async throws
     func cleanupCache(onOutput: @escaping @Sendable (String) -> Void) async throws
     func getDiskUsage() async throws -> String
     func doctor() async throws -> String
@@ -30,11 +31,14 @@ protocol BrewServiceProtocol: AnyObject {
     func startService(_ name: String) async throws
     func stopService(_ name: String) async throws
     func restartService(_ name: String) async throws
-    func listTaps() async throws -> [String]
+    func listTaps() async throws -> [BrewTap]
     func addTap(_ name: String, onOutput: @escaping @Sendable (String) -> Void) async throws
     func removeTap(_ name: String, onOutput: @escaping @Sendable (String) -> Void) async throws
+    func trustTap(_ name: String) async throws
+    func untrustTap(_ name: String) async throws
     func pin(_ name: String) async throws
     func unpin(_ name: String) async throws
+    func setInstalledOnRequest(_ name: String, isCask: Bool, value: Bool) async throws
     func autoremove(onOutput: @escaping @Sendable (String) -> Void) async throws
     func installMultiple(_ names: [String], isCask: Bool, onOutput: @escaping @Sendable (String) -> Void) async throws
     func prefetchSearchLists() async
@@ -104,6 +108,12 @@ private struct BrewOutdatedOutput: Decodable {
             case currentVersion = "current_version"
         }
     }
+}
+
+private struct TapInfoJSON: Decodable {
+    let name: String
+    let official: Bool
+    let trusted: Bool?
 }
 
 // MARK: - Implementation
@@ -264,6 +274,12 @@ final class BrewService: BrewServiceProtocol {
         try await ShellExecutor.runStreaming(["update"], onOutput: onOutput)
     }
 
+    /// brew 6: runs a full update only when the local database is stale.
+    /// Much cheaper than `brew update` for periodic background checks.
+    func updateIfNeeded() async throws {
+        _ = try await ShellExecutor.run(["update-if-needed"])
+    }
+
     // MARK: - Diagnostics
 
     func doctor() async throws -> String {
@@ -355,9 +371,27 @@ final class BrewService: BrewServiceProtocol {
 
     // MARK: - Taps
 
-    func listTaps() async throws -> [String] {
+    func listTaps() async throws -> [BrewTap] {
+        // brew 6: single JSON call includes official + trusted metadata.
+        if let json = try? await ShellExecutor.run(["tap-info", "--installed", "--json=v1"]),
+           let taps = parseTapInfo(json) {
+            return taps
+        }
+        // Fallback for older brews: plain names, no trust concept.
         let output = try await ShellExecutor.run(["tap"])
-        return output.components(separatedBy: "\n").filter { !$0.isEmpty }
+        return output.components(separatedBy: "\n")
+            .filter { !$0.isEmpty }
+            .map { BrewTap(name: $0, isOfficial: $0.hasPrefix("homebrew/"), isTrusted: true) }
+    }
+
+    func parseTapInfo(_ json: String) -> [BrewTap]? {
+        guard let data = json.data(using: .utf8),
+              let decoded = try? JSONDecoder().decode([TapInfoJSON].self, from: data) else {
+            return nil
+        }
+        return decoded.map {
+            BrewTap(name: $0.name, isOfficial: $0.official, isTrusted: $0.trusted ?? true)
+        }
     }
 
     func addTap(_ name: String, onOutput: @escaping @Sendable (String) -> Void) async throws {
@@ -368,6 +402,14 @@ final class BrewService: BrewServiceProtocol {
         try await ShellExecutor.runStreaming(["untap", name], onOutput: onOutput)
     }
 
+    func trustTap(_ name: String) async throws {
+        _ = try await ShellExecutor.run(["trust", "--tap", name])
+    }
+
+    func untrustTap(_ name: String) async throws {
+        _ = try await ShellExecutor.run(["untrust", "--tap", name])
+    }
+
     // MARK: - Pin / Unpin
 
     func pin(_ name: String) async throws {
@@ -376,6 +418,17 @@ final class BrewService: BrewServiceProtocol {
 
     func unpin(_ name: String) async throws {
         _ = try await ShellExecutor.run(["unpin", name])
+    }
+
+    // MARK: - Tab (installed-on-request)
+
+    /// Marks a package as installed on request (or not) via `brew tab`,
+    /// which controls whether `brew autoremove` may remove it.
+    func setInstalledOnRequest(_ name: String, isCask: Bool, value: Bool) async throws {
+        var args = ["tab", value ? "--installed-on-request" : "--no-installed-on-request"]
+        if isCask { args.append("--cask") }
+        args.append(name)
+        _ = try await ShellExecutor.run(args)
     }
 
     // MARK: - Autoremove

@@ -98,7 +98,7 @@ struct PackageDetailView: View {
 
                     // Show install origin — only meaningful for formulae
                     if package.type == .formula {
-                        if !package.installedOnRequest {
+                        if !livePackage.installedOnRequest {
                             InfoCard(
                                 title: "Installed As",
                                 value: "Dependency",
@@ -200,6 +200,28 @@ struct PackageDetailView: View {
                         )
                         .disabled(viewModel.isOperationRunning)
                     }
+                }
+
+                // Autoremove protection (brew tab, brew >= 6)
+                let isInstalledForTab = viewModel.installedPackages.contains { $0.id == package.id }
+                if isInstalledForTab {
+                    Toggle(isOn: Binding(
+                        get: { livePackage.installedOnRequest },
+                        set: { newValue in
+                            Task { await viewModel.setInstalledOnRequest(livePackage, value: newValue) }
+                        }
+                    )) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Installed on request")
+                                .font(.callout.weight(.medium))
+                            Text("Off means brew autoremove may remove this package when nothing depends on it.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                    .disabled(viewModel.isOperationRunning)
                 }
 
                 // Release Notes Section

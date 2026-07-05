@@ -2,6 +2,19 @@
 
 All notable changes to Pint will be documented in this file.
 
+## [1.4.0] — 2026-07-06
+
+### ✨ New Features
+- **Homebrew 6 support**:
+  - Taps view shows tap trust status with Trust/Untrust actions
+  - "Installed on request" toggle in package details (controls autoremove)
+  - Background update checks use the faster `brew update-if-needed`
+
+### 🐛 Fixes
+- Operations no longer hang on Homebrew 6's ask-mode confirmation prompt
+
+---
+
 ## [1.1.3] — 2026-03-30
 
 ### ✨ New Features
