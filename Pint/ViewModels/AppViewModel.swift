@@ -243,7 +243,7 @@ final class AppViewModel {
     var doctorOutput: String = ""
     var brewVersion: String = ""
     var diskUsage: String = ""
-    var taps: [String] = []
+    var taps: [BrewTap] = []
 
     var brewAvailable: Bool = false
     var isCheckingBrew: Bool = true
@@ -400,7 +400,7 @@ final class AppViewModel {
             // background so the outdated list reflects the actual latest versions.
             if isBrewUpdateStale {
                 Task {
-                    try? await brewService.update(onOutput: { _ in })
+                    try? await brewService.updateIfNeeded()
                     await self.loadOutdated()
                     let now = Date()
                     self.lastBrewUpdateDate = now
@@ -422,29 +422,36 @@ final class AppViewModel {
                 let seconds = interval > 0 ? interval : 3600
                 try? await Task.sleep(for: .seconds(seconds))
                 guard !Task.isCancelled else { break }
-                do {
-                    // Update the formula database before checking so results
-                    // reflect the latest available versions, not a stale local cache.
-                    try? await brewService.update(onOutput: { _ in })
-                    await brewService.invalidateSearchCache()
-                    let now = Date()
-                    lastBrewUpdateDate = now
-                    UserDefaults.standard.set(now.timeIntervalSince1970, forKey: AppSettingsKeys.lastBrewUpdate)
-                    let previousCount = outdatedPackages.count
-                    outdatedPackages = try await brewService.listOutdated()
-                    reconcileOutdatedStatus()
-                    lastOutdatedCheck = Date()
-                    backgroundError = nil
-                    // Notify only when new packages become outdated since last check.
-                    let newCount = outdatedPackages.count
-                    if newCount > previousCount {
-                        await sendUpdatesFoundNotification(count: newCount)
-                    }
-                } catch {
-                    logger.error("Background update check failed: \(error)")
-                    backgroundError = error.localizedDescription
-                }
+                await performBackgroundUpdateCheck()
             }
+        }
+    }
+
+    /// One background refresh pass: cheap DB update, then re-check outdated.
+    /// Extracted from the loop for testability. Failures surface as a
+    /// non-intrusive banner rather than a blocking alert.
+    func performBackgroundUpdateCheck() async {
+        do {
+            // brew update-if-needed refreshes the formula database only when
+            // stale, so periodic checks stay cheap.
+            try? await brewService.updateIfNeeded()
+            await brewService.invalidateSearchCache()
+            let now = Date()
+            lastBrewUpdateDate = now
+            UserDefaults.standard.set(now.timeIntervalSince1970, forKey: AppSettingsKeys.lastBrewUpdate)
+            let previousCount = outdatedPackages.count
+            outdatedPackages = try await brewService.listOutdated()
+            reconcileOutdatedStatus()
+            lastOutdatedCheck = Date()
+            backgroundError = nil
+            // Notify only when new packages become outdated since last check.
+            let newCount = outdatedPackages.count
+            if newCount > previousCount {
+                await sendUpdatesFoundNotification(count: newCount)
+            }
+        } catch {
+            logger.error("Background update check failed: \(error)")
+            backgroundError = error.localizedDescription
         }
     }
 
@@ -667,6 +674,21 @@ final class AppViewModel {
         }
     }
 
+    func setInstalledOnRequest(_ package: BrewPackage, value: Bool) async {
+        do {
+            try await brewService.setInstalledOnRequest(
+                package.name,
+                isCask: package.type == .cask,
+                value: value
+            )
+            if let idx = installedPackages.firstIndex(where: { $0.id == package.id }) {
+                installedPackages[idx].installedOnRequest = value
+            }
+        } catch {
+            showError(error.localizedDescription)
+        }
+    }
+
     func updateBrew() {
         runBrewOperation(command: "update", packageName: "Homebrew") { [self] onOutput in
             try await brewService.update(onOutput: onOutput)
@@ -697,6 +719,24 @@ final class AppViewModel {
             try await brewService.removeTap(name, onOutput: onOutput)
         } onComplete: { [self] in
             await loadTaps()
+        }
+    }
+
+    func trustTap(_ tap: BrewTap) async {
+        do {
+            try await brewService.trustTap(tap.name)
+            await loadTaps()
+        } catch {
+            showError(error.localizedDescription)
+        }
+    }
+
+    func untrustTap(_ tap: BrewTap) async {
+        do {
+            try await brewService.untrustTap(tap.name)
+            await loadTaps()
+        } catch {
+            showError(error.localizedDescription)
         }
     }
 

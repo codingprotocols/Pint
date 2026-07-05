@@ -24,6 +24,13 @@ final class MockBrewService: BrewServiceProtocol {
 
     var listServicesCalled = false
     var listTapsCalled = false
+    var stubbedTaps: [BrewTap] = []
+    var trustTapCalledWith: [String] = []
+    var untrustTapCalledWith: [String] = []
+    var trustTapError: Error? = nil
+    var setInstalledOnRequestCalls: [(name: String, isCask: Bool, value: Bool)] = []
+    var updateIfNeededCallCount = 0
+    var updateCalled = false
 
     // Call counters
     var listInstalledCallCount = 0
@@ -47,7 +54,12 @@ final class MockBrewService: BrewServiceProtocol {
         if let error = upgradeAllError { throw error }
     }
     func uninstall(_ name: String, isCask: Bool, onOutput: @escaping @Sendable (String) -> Void) async throws {}
-    func update(onOutput: @escaping @Sendable (String) -> Void) async throws {}
+    func update(onOutput: @escaping @Sendable (String) -> Void) async throws {
+        updateCalled = true
+    }
+    func updateIfNeeded() async throws {
+        updateIfNeededCallCount += 1
+    }
     func cleanupCache(onOutput: @escaping @Sendable (String) -> Void) async throws {}
     func getDiskUsage() async throws -> String { "" }
     func doctor() async throws -> String { "" }
@@ -60,14 +72,24 @@ final class MockBrewService: BrewServiceProtocol {
     func startService(_ name: String) async throws {}
     func stopService(_ name: String) async throws {}
     func restartService(_ name: String) async throws {}
-    func listTaps() async throws -> [String] {
+    func listTaps() async throws -> [BrewTap] {
         listTapsCalled = true
-        return []
+        return stubbedTaps
     }
     func addTap(_ name: String, onOutput: @escaping @Sendable (String) -> Void) async throws {}
+    func trustTap(_ name: String) async throws {
+        if let error = trustTapError { throw error }
+        trustTapCalledWith.append(name)
+    }
+    func untrustTap(_ name: String) async throws {
+        untrustTapCalledWith.append(name)
+    }
     func removeTap(_ name: String, onOutput: @escaping @Sendable (String) -> Void) async throws {}
     func pin(_ name: String) async throws {}
     func unpin(_ name: String) async throws {}
+    func setInstalledOnRequest(_ name: String, isCask: Bool, value: Bool) async throws {
+        setInstalledOnRequestCalls.append((name, isCask, value))
+    }
     func autoremove(onOutput: @escaping @Sendable (String) -> Void) async throws {}
     func installMultiple(_ names: [String], isCask: Bool, onOutput: @escaping @Sendable (String) -> Void) async throws {
         installMultipleCalledNames.append(names)

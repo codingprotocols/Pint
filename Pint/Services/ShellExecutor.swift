@@ -126,6 +126,18 @@ actor ShellExecutor {
         return components.joined(separator: ":")
     }
 
+    /// Environment for all brew invocations. HOMEBREW_NO_ASK opts out of
+    /// brew 6's interactive ask-mode confirmation, which would otherwise
+    /// block forever on a pipe.
+    static func brewEnvironment() -> [String: String] {
+        var env = ProcessInfo.processInfo.environment
+        env["HOMEBREW_NO_AUTO_UPDATE"] = "1"
+        env["HOMEBREW_NO_INSTALL_CLEANUP"] = "1"
+        env["HOMEBREW_NO_ASK"] = "1"
+        env["PATH"] = buildBrewPATH(from: env["PATH"])
+        return env
+    }
+
     /// Run a brew command and return the full output when complete.
     static func run(_ arguments: [String]) async throws -> String {
         let brewPath = try resolveBrewPath()
@@ -133,11 +145,7 @@ actor ShellExecutor {
         process.executableURL = URL(fileURLWithPath: brewPath)
         process.arguments = arguments
 
-        var env = ProcessInfo.processInfo.environment
-        env["HOMEBREW_NO_AUTO_UPDATE"] = "1"
-        env["HOMEBREW_NO_INSTALL_CLEANUP"] = "1"
-        env["PATH"] = Self.buildBrewPATH(from: env["PATH"])
-        process.environment = env
+        process.environment = Self.brewEnvironment()
 
         let outputPipe = Pipe()
         let errorPipe = Pipe()
@@ -270,11 +278,7 @@ actor ShellExecutor {
         process.executableURL = URL(fileURLWithPath: brewPath)
         process.arguments = arguments
 
-        var env = ProcessInfo.processInfo.environment
-        env["HOMEBREW_NO_AUTO_UPDATE"] = "1"
-        env["HOMEBREW_NO_INSTALL_CLEANUP"] = "1"
-        env["PATH"] = Self.buildBrewPATH(from: env["PATH"])
-        process.environment = env
+        process.environment = Self.brewEnvironment()
 
         // Route stderr into the same pipe as stdout so there is only one
         // readabilityHandler callback. Using two separate handlers fires on

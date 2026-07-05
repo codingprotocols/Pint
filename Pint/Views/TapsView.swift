@@ -62,13 +62,13 @@ struct TapsView: View {
                 )
             } else {
                 List {
-                    ForEach(viewModel.taps, id: \.self) { tap in
+                    ForEach(viewModel.taps) { tap in
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(tap)
+                                Text(tap.name)
                                     .font(.headline)
 
-                                if tap.starts(with: "homebrew/") {
+                                if tap.isOfficial {
                                     Text("Official")
                                         .font(.caption)
                                         .foregroundStyle(.blue)
@@ -77,8 +77,31 @@ struct TapsView: View {
 
                             Spacer()
 
+                            if !tap.isOfficial {
+                                Label(tap.isTrusted ? "Trusted" : "Untrusted",
+                                      systemImage: tap.isTrusted ? "checkmark.shield" : "exclamationmark.shield")
+                                    .font(.caption)
+                                    .foregroundStyle(tap.isTrusted ? .green : .orange)
+
+                                Button(tap.isTrusted ? "Untrust" : "Trust") {
+                                    Task {
+                                        if tap.isTrusted {
+                                            await viewModel.untrustTap(tap)
+                                        } else {
+                                            await viewModel.trustTap(tap)
+                                        }
+                                    }
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                                .help(tap.isTrusted
+                                      ? "Stop trusting this tap's formulae and casks"
+                                      : "Allow Homebrew to run this tap's code")
+                                .disabled(viewModel.isOperationRunning)
+                            }
+
                             Button(role: .destructive) {
-                                viewModel.removeTap(tap)
+                                viewModel.removeTap(tap.name)
                             } label: {
                                 Image(systemName: "trash")
                                     .foregroundStyle(.red)

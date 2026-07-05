@@ -378,6 +378,103 @@ final class AppViewModelTests: XCTestCase {
                       "refreshCurrentView() on .services must trigger loadServices()")
     }
 
+    // MARK: - Tap trust (brew 6)
+
+    func testLoadTaps_populatesTapsWithTrustMetadata() async {
+        let mock = MockBrewService()
+        mock.stubbedTaps = [
+            BrewTap(name: "homebrew/core", isOfficial: true, isTrusted: true),
+            BrewTap(name: "localstack/tap", isOfficial: false, isTrusted: false),
+        ]
+        let vm = AppViewModel(brewService: mock)
+
+        await vm.loadTaps()
+
+        XCTAssertTrue(mock.listTapsCalled)
+        XCTAssertEqual(vm.taps.count, 2)
+        XCTAssertEqual(vm.taps[1].name, "localstack/tap")
+        XCTAssertFalse(vm.taps[1].isTrusted)
+    }
+
+    func testTrustTap_callsServiceAndReloadsTaps() async {
+        let mock = MockBrewService()
+        mock.stubbedTaps = [BrewTap(name: "localstack/tap", isOfficial: false, isTrusted: false)]
+        let vm = AppViewModel(brewService: mock)
+        await vm.loadTaps()
+
+        // After trusting, the reload returns the updated state.
+        mock.stubbedTaps = [BrewTap(name: "localstack/tap", isOfficial: false, isTrusted: true)]
+        await vm.trustTap(vm.taps[0])
+
+        XCTAssertEqual(mock.trustTapCalledWith, ["localstack/tap"])
+        XCTAssertTrue(vm.taps[0].isTrusted)
+    }
+
+    func testUntrustTap_callsServiceAndReloadsTaps() async {
+        let mock = MockBrewService()
+        mock.stubbedTaps = [BrewTap(name: "mongodb/brew", isOfficial: false, isTrusted: true)]
+        let vm = AppViewModel(brewService: mock)
+        await vm.loadTaps()
+
+        mock.stubbedTaps = [BrewTap(name: "mongodb/brew", isOfficial: false, isTrusted: false)]
+        await vm.untrustTap(vm.taps[0])
+
+        XCTAssertEqual(mock.untrustTapCalledWith, ["mongodb/brew"])
+        XCTAssertFalse(vm.taps[0].isTrusted)
+    }
+
+    func testTrustTap_errorSurfacesAlert() async {
+        let mock = MockBrewService()
+        mock.trustTapError = ShellError.commandFailed(command: "brew trust", exitCode: 1, stderr: "boom")
+        let vm = AppViewModel(brewService: mock)
+
+        await vm.trustTap(BrewTap(name: "x/tap", isOfficial: false, isTrusted: false))
+
+        XCTAssertTrue(vm.showError)
+    }
+
+    // MARK: - Installed on request (brew tab)
+
+    func testSetInstalledOnRequest_updatesPackageInPlace() async {
+        var pkg = BrewPackage.make(name: "wget", type: .formula)
+        pkg.installedOnRequest = false
+        let vm = makeViewModel(installed: [pkg])
+
+        await vm.setInstalledOnRequest(vm.installedPackages[0], value: true)
+
+        XCTAssertTrue(vm.installedPackages[0].installedOnRequest,
+                      "Toggle must update the installed list in place, without a full reload")
+    }
+
+    func testSetInstalledOnRequest_recordsNameCaskAndValue() async {
+        let mock = MockBrewService()
+        mock.stubbedInstalled = [BrewPackage.make(name: "firefox", type: .cask)]
+        let vm = AppViewModel(brewService: mock)
+        await vm.loadInstalled()
+
+        await vm.setInstalledOnRequest(vm.installedPackages[0], value: false)
+
+        XCTAssertEqual(mock.setInstalledOnRequestCalls.count, 1)
+        XCTAssertEqual(mock.setInstalledOnRequestCalls[0].name, "firefox")
+        XCTAssertTrue(mock.setInstalledOnRequestCalls[0].isCask)
+        XCTAssertFalse(mock.setInstalledOnRequestCalls[0].value)
+        XCTAssertFalse(vm.installedPackages[0].installedOnRequest)
+    }
+
+    // MARK: - Background refresh (brew update-if-needed)
+
+    func testPerformBackgroundUpdateCheck_usesUpdateIfNeeded() async {
+        let mock = MockBrewService()
+        mock.stubbedOutdated = [BrewPackage.make(name: "wget", type: .formula)]
+        let vm = AppViewModel(brewService: mock)
+
+        await vm.performBackgroundUpdateCheck()
+
+        XCTAssertEqual(mock.updateIfNeededCallCount, 1)
+        XCTAssertFalse(mock.updateCalled, "Background checks must use the cheap update-if-needed, not a full brew update")
+        XCTAssertEqual(vm.outdatedPackages.count, 1)
+    }
+
     // MARK: - Helpers
 
     private func makeViewModel(
