@@ -82,7 +82,7 @@
       <title>Version 1.4.2</title>
       <sparkle:version>7</sparkle:version>
       <sparkle:shortVersionString>1.4.2</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <sparkle:minimumSystemVersion>26.2</sparkle:minimumSystemVersion>
       <pubDate>Tue, 18 Aug 2026 22:07:50 +0000</pubDate>
       <enclosure
         url="https://github.com/codingprotocols/Pint/releases/download/v1.4.2/Pint-1.4.2.dmg"

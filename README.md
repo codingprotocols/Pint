@@ -43,6 +43,10 @@ Browse, search, install, upgrade, and uninstall formulae and casks without touch
 ### Auto-Updates
 - Built-in Sparkle updater — Pint notifies you when a new version is available and updates in-place
 
+> **Running 1.4.1 or earlier?** Those builds shipped without an update feed, so
+> they cannot see new versions. Download 1.4.2 or later manually once from
+> [Releases](../../releases/latest); updates are automatic from then on.
+
 ---
 
 ## Screenshots
@@ -78,8 +82,8 @@ Press `⌘R` to build and run.
 
 | | Minimum |
 |---|---|
-| macOS | 15.0 (Sequoia) |
-| Xcode | 16.0+ (build from source only) |
+| macOS | 26.2 (Tahoe) |
+| Xcode | 26.0+ (build from source only) |
 | Homebrew | [brew.sh](https://brew.sh) |
 
 If Homebrew is not installed, Pint shows step-by-step installation instructions on launch.

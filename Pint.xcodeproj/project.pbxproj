@@ -27,9 +27,22 @@
 		ABTE570B123456789000000B /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		ABEXC0011234567890000001 /* Exceptions for "Pint" folder in "Pint" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AB8A74E02F4B795400969887 /* Pint */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		AB8A74E32F4B795400969887 /* Pint */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				ABEXC0011234567890000001 /* Exceptions for "Pint" folder in "Pint" target */,
+			);
 			path = Pint;
 			sourceTree = "<group>";
 		};
