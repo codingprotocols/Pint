@@ -169,16 +169,32 @@ final class BrewServiceParsingTests: XCTestCase {
         ])
     }
 
-    func testParseTapInfo_missingTrustedField_defaultsToTrusted() {
-        // brew < 6 tap-info JSON has no "trusted" key; treat as trusted.
-        let json = #"[{"name": "homebrew/core", "official": true}]"#
+    func testParseTapInfo_missingTrustedField_isUnknownNotTrusted() {
+        // brew < 6 tap-info JSON has no "trusted" key. Unknown must stay
+        // unknown — reporting it as trusted would hide a real security signal
+        // and expose brew 6-only Trust/Untrust actions on older brews.
+        let json = #"[{"name": "third/party", "official": false}]"#
 
         let taps = service.parseTapInfo(json)
 
-        XCTAssertEqual(taps, [BrewTap(name: "homebrew/core", isOfficial: true, isTrusted: true)])
+        XCTAssertEqual(taps, [BrewTap(name: "third/party", isOfficial: false, isTrusted: nil)])
+        XCTAssertFalse(taps?[0].supportsTrustActions ?? true,
+                       "Trust actions must be hidden when brew does not report trust")
+        XCTAssertFalse(taps?[0].isKnownUntrusted ?? true)
     }
 
     func testParseTapInfo_malformedJSON_returnsNil() {
         XCTAssertNil(service.parseTapInfo("not json"))
+    }
+
+    func testBrewTap_officialTapNeverOffersTrustActions() {
+        let official = BrewTap(name: "homebrew/core", isOfficial: true, isTrusted: true)
+        XCTAssertFalse(official.supportsTrustActions)
+    }
+
+    func testBrewTap_untrustedThirdPartyTapOffersTrustActions() {
+        let tap = BrewTap(name: "localstack/tap", isOfficial: false, isTrusted: false)
+        XCTAssertTrue(tap.supportsTrustActions)
+        XCTAssertTrue(tap.isKnownUntrusted)
     }
 }

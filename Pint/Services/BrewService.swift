@@ -276,8 +276,13 @@ final class BrewService: BrewServiceProtocol {
 
     /// brew 6: runs a full update only when the local database is stale.
     /// Much cheaper than `brew update` for periodic background checks.
+    ///
+    /// `update-if-needed` delegates to brew's `auto-update` helper, which
+    /// bails out immediately when `HOMEBREW_NO_AUTO_UPDATE` is set. The
+    /// default brew environment sets that variable, so this call must
+    /// explicitly opt back in or it would silently do nothing.
     func updateIfNeeded() async throws {
-        _ = try await ShellExecutor.run(["update-if-needed"])
+        _ = try await ShellExecutor.run(["update-if-needed"], allowAutoUpdate: true)
     }
 
     // MARK: - Diagnostics
@@ -373,15 +378,21 @@ final class BrewService: BrewServiceProtocol {
 
     func listTaps() async throws -> [BrewTap] {
         // brew 6: single JSON call includes official + trusted metadata.
-        if let json = try? await ShellExecutor.run(["tap-info", "--installed", "--json=v1"]),
-           let taps = parseTapInfo(json) {
-            return taps
+        do {
+            let json = try await ShellExecutor.run(["tap-info", "--installed", "--json=v1"])
+            if let taps = parseTapInfo(json) {
+                return taps
+            }
+            logger.error("brew tap-info returned unparseable JSON; falling back to `brew tap`")
+        } catch {
+            logger.error("brew tap-info failed: \(error); falling back to `brew tap`")
         }
         // Fallback for older brews: plain names, no trust concept.
+        // `isTrusted: nil` records "unknown" — never assume trusted.
         let output = try await ShellExecutor.run(["tap"])
         return output.components(separatedBy: "\n")
             .filter { !$0.isEmpty }
-            .map { BrewTap(name: $0, isOfficial: $0.hasPrefix("homebrew/"), isTrusted: true) }
+            .map { BrewTap(name: $0, isOfficial: $0.hasPrefix("homebrew/"), isTrusted: nil) }
     }
 
     func parseTapInfo(_ json: String) -> [BrewTap]? {
@@ -389,8 +400,11 @@ final class BrewService: BrewServiceProtocol {
               let decoded = try? JSONDecoder().decode([TapInfoJSON].self, from: data) else {
             return nil
         }
+        // brew < 6 emits tap-info without a "trusted" key. Propagate the
+        // absence as `nil` so the UI can hide brew 6-only trust actions
+        // instead of falsely reporting every tap as trusted.
         return decoded.map {
-            BrewTap(name: $0.name, isOfficial: $0.official, isTrusted: $0.trusted ?? true)
+            BrewTap(name: $0.name, isOfficial: $0.official, isTrusted: $0.trusted)
         }
     }
 

@@ -393,7 +393,7 @@ final class AppViewModelTests: XCTestCase {
         XCTAssertTrue(mock.listTapsCalled)
         XCTAssertEqual(vm.taps.count, 2)
         XCTAssertEqual(vm.taps[1].name, "localstack/tap")
-        XCTAssertFalse(vm.taps[1].isTrusted)
+        XCTAssertEqual(vm.taps[1].isTrusted, false)
     }
 
     func testTrustTap_callsServiceAndReloadsTaps() async {
@@ -407,7 +407,7 @@ final class AppViewModelTests: XCTestCase {
         await vm.trustTap(vm.taps[0])
 
         XCTAssertEqual(mock.trustTapCalledWith, ["localstack/tap"])
-        XCTAssertTrue(vm.taps[0].isTrusted)
+        XCTAssertEqual(vm.taps[0].isTrusted, true)
     }
 
     func testUntrustTap_callsServiceAndReloadsTaps() async {
@@ -420,7 +420,7 @@ final class AppViewModelTests: XCTestCase {
         await vm.untrustTap(vm.taps[0])
 
         XCTAssertEqual(mock.untrustTapCalledWith, ["mongodb/brew"])
-        XCTAssertFalse(vm.taps[0].isTrusted)
+        XCTAssertEqual(vm.taps[0].isTrusted, false)
     }
 
     func testTrustTap_errorSurfacesAlert() async {
@@ -473,6 +473,36 @@ final class AppViewModelTests: XCTestCase {
         XCTAssertEqual(mock.updateIfNeededCallCount, 1)
         XCTAssertFalse(mock.updateCalled, "Background checks must use the cheap update-if-needed, not a full brew update")
         XCTAssertEqual(vm.outdatedPackages.count, 1)
+    }
+
+    func testPerformBackgroundUpdateCheck_successRecordsFreshnessTimestamp() async {
+        UserDefaults.standard.removeObject(forKey: AppSettingsKeys.lastBrewUpdate)
+        defer { UserDefaults.standard.removeObject(forKey: AppSettingsKeys.lastBrewUpdate) }
+        let vm = AppViewModel(brewService: MockBrewService())
+
+        await vm.performBackgroundUpdateCheck()
+
+        XCTAssertNotNil(vm.lastBrewUpdateDate)
+        XCTAssertFalse(vm.isBrewUpdateStale)
+    }
+
+    func testPerformBackgroundUpdateCheck_failedRefreshDoesNotRecordFreshness() async {
+        UserDefaults.standard.removeObject(forKey: AppSettingsKeys.lastBrewUpdate)
+        defer { UserDefaults.standard.removeObject(forKey: AppSettingsKeys.lastBrewUpdate) }
+        let mock = MockBrewService()
+        mock.updateIfNeededError = ShellError.commandFailed(
+            command: "brew update-if-needed", exitCode: 1, stderr: "boom"
+        )
+        let vm = AppViewModel(brewService: mock)
+
+        await vm.performBackgroundUpdateCheck()
+
+        XCTAssertNil(vm.lastBrewUpdateDate,
+                     "A failed database refresh must not be recorded as a successful update, "
+                     + "otherwise isBrewUpdateStale would never fire again")
+        XCTAssertTrue(vm.isBrewUpdateStale)
+        // The outdated check still runs against the existing database.
+        XCTAssertNotNil(vm.lastOutdatedCheck)
     }
 
     // MARK: - Helpers

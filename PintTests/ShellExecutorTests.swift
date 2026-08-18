@@ -19,4 +19,15 @@ final class ShellExecutorTests: XCTestCase {
         XCTAssertEqual(env["HOMEBREW_NO_INSTALL_CLEANUP"], "1")
         XCTAssertNotNil(env["PATH"])
     }
+
+    /// `brew update-if-needed` is a thin wrapper around brew's `auto-update`
+    /// helper, which returns immediately when HOMEBREW_NO_AUTO_UPDATE is set.
+    /// Leaving the variable in place would make the command a silent no-op.
+    func testBrewEnvironment_allowAutoUpdate_clearsNoAutoUpdate() {
+        let env = ShellExecutor.brewEnvironment(allowAutoUpdate: true)
+
+        XCTAssertNil(env["HOMEBREW_NO_AUTO_UPDATE"])
+        XCTAssertEqual(env["HOMEBREW_NO_ASK"], "1")
+        XCTAssertEqual(env["HOMEBREW_NO_INSTALL_CLEANUP"], "1")
+    }
 }

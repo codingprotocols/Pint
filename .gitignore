@@ -61,3 +61,6 @@ Pint 20*/
 .worktrees/
 
 docs/
+# LLVM code-coverage artifacts
+*.profraw
+*.profdata

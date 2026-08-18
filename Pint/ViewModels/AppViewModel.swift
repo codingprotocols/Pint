@@ -309,8 +309,14 @@ final class AppViewModel {
     var activeOperation: BrewOperation? { runner.activeOperation }
     var operationHistory: [BrewOperation] { runner.operationHistory }
 
+    /// Set while a tap trust/untrust command is in flight. These are quick,
+    /// non-streaming commands that bypass the shared operation runner, so they
+    /// need their own re-entrancy flag — without it the Trust/Untrust buttons
+    /// would never disable and rapid clicks would race on brew's trust.json.
+    private(set) var isTapTrustRunning: Bool = false
+
     /// Whether a blocking Homebrew operation is currently running.
-    var isOperationRunning: Bool { runner.isOperationRunning }
+    var isOperationRunning: Bool { runner.isOperationRunning || isTapTrustRunning }
 
     func cancelOperation() { runner.cancel() }
     func dismissOperation() { runner.dismiss() }
@@ -396,15 +402,20 @@ final class AppViewModel {
             await loadBrewVersion()
             await loadTaps()
 
-            // If the formula database is stale, silently run `brew update` in the
+            // If the formula database is stale, silently refresh it in the
             // background so the outdated list reflects the actual latest versions.
             if isBrewUpdateStale {
                 Task {
-                    try? await brewService.updateIfNeeded()
+                    // Only stamp the timestamp on success — otherwise a failed
+                    // refresh would mark the database fresh and it would never
+                    // be retried.
+                    do {
+                        try await self.brewService.updateIfNeeded()
+                        self.recordBrewUpdate()
+                    } catch {
+                        logger.error("Startup brew update-if-needed failed: \(error)")
+                    }
                     await self.loadOutdated()
-                    let now = Date()
-                    self.lastBrewUpdateDate = now
-                    UserDefaults.standard.set(now.timeIntervalSince1970, forKey: AppSettingsKeys.lastBrewUpdate)
                 }
             }
 
@@ -433,12 +444,17 @@ final class AppViewModel {
     func performBackgroundUpdateCheck() async {
         do {
             // brew update-if-needed refreshes the formula database only when
-            // stale, so periodic checks stay cheap.
-            try? await brewService.updateIfNeeded()
+            // stale, so periodic checks stay cheap. A failure here is not
+            // fatal — the outdated check below still runs against the existing
+            // database — but it must NOT advance the freshness timestamp, or
+            // `isBrewUpdateStale` would never fire again.
+            do {
+                try await brewService.updateIfNeeded()
+                recordBrewUpdate()
+            } catch {
+                logger.error("brew update-if-needed failed: \(error)")
+            }
             await brewService.invalidateSearchCache()
-            let now = Date()
-            lastBrewUpdateDate = now
-            UserDefaults.standard.set(now.timeIntervalSince1970, forKey: AppSettingsKeys.lastBrewUpdate)
             let previousCount = outdatedPackages.count
             outdatedPackages = try await brewService.listOutdated()
             reconcileOutdatedStatus()
@@ -453,6 +469,14 @@ final class AppViewModel {
             logger.error("Background update check failed: \(error)")
             backgroundError = error.localizedDescription
         }
+    }
+
+    /// Records a *successful* formula-database refresh. Must never be called
+    /// after a failed or skipped update.
+    private func recordBrewUpdate() {
+        let now = Date()
+        lastBrewUpdateDate = now
+        UserDefaults.standard.set(now.timeIntervalSince1970, forKey: AppSettingsKeys.lastBrewUpdate)
     }
 
     func loadInstalled() async {
@@ -723,6 +747,9 @@ final class AppViewModel {
     }
 
     func trustTap(_ tap: BrewTap) async {
+        guard !isTapTrustRunning else { return }
+        isTapTrustRunning = true
+        defer { isTapTrustRunning = false }
         do {
             try await brewService.trustTap(tap.name)
             await loadTaps()
@@ -732,6 +759,9 @@ final class AppViewModel {
     }
 
     func untrustTap(_ tap: BrewTap) async {
+        guard !isTapTrustRunning else { return }
+        isTapTrustRunning = true
+        defer { isTapTrustRunning = false }
         do {
             try await brewService.untrustTap(tap.name)
             await loadTaps()
