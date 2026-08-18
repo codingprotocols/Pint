@@ -15,7 +15,11 @@ concurrency:
 jobs:
   build-test:
     name: Build & Test
-    runs-on: macos-15
+    # Must be macos-26: the targets deploy to macOS 26.2, and xcodebuild
+    # refuses to *run* tests on an older host ("My Mac's macOS 15.7.7 doesn't
+    # match PintTests's macOS 26.2 deployment target"). Building is fine on
+    # older hosts, which is why release.yml still works on macos-15.
+    runs-on: macos-26
     timeout-minutes: 30
 
     steps:
