@@ -274,11 +274,11 @@ jobs:
         uses: actions/cache@v6
         with:
           path: sparkle_tools
-          key: sparkle-2.9.0
+          key: sparkle-2.9.5
 
       - name: Download Sparkle tools
         run: |
-          SPARKLE_VERSION="2.9.0"
+          SPARKLE_VERSION="2.9.5"
           if [ ! -f "sparkle_tools/bin/sign_update" ] && ! find sparkle_tools -name sign_update -quit 2>/dev/null | grep -q .; then
             curl -L --fail \
               "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz" \
@@ -367,7 +367,7 @@ jobs:
                 <title>Version {version}</title>
                 <sparkle:version>{build}</sparkle:version>
                 <sparkle:shortVersionString>{version}</sparkle:shortVersionString>
-                <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+                <sparkle:minimumSystemVersion>26.2</sparkle:minimumSystemVersion>
                 <pubDate>{pubdate}</pubDate>
                 <enclosure
                   url="{dmg_url}"
@@ -426,7 +426,7 @@ jobs:
             Pint will notify you automatically when a new version is available
             via Sparkle. Use **Pint → Check for Updates…** to check manually.
 
-            > **Requires:** macOS 15.0 (Sequoia) or later + [Homebrew](https://brew.sh)
+            > **Requires:** macOS 26.2 (Tahoe) or later + [Homebrew](https://brew.sh)
 
             See [CHANGELOG.md](CHANGELOG.md) for full release notes.
           files: ${{ steps.dmg.outputs.DMG_PATH }}
