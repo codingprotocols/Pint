@@ -309,8 +309,14 @@ final class AppViewModel {
     var activeOperation: BrewOperation? { runner.activeOperation }
     var operationHistory: [BrewOperation] { runner.operationHistory }
 
+    /// Set while a tap trust/untrust command is in flight. These are quick,
+    /// non-streaming commands that bypass the shared operation runner, so they
+    /// need their own re-entrancy flag — without it the Trust/Untrust buttons
+    /// would never disable and rapid clicks would race on brew's trust.json.
+    private(set) var isTapTrustRunning: Bool = false
+
     /// Whether a blocking Homebrew operation is currently running.
-    var isOperationRunning: Bool { runner.isOperationRunning }
+    var isOperationRunning: Bool { runner.isOperationRunning || isTapTrustRunning }
 
     func cancelOperation() { runner.cancel() }
     func dismissOperation() { runner.dismiss() }
@@ -741,6 +747,9 @@ final class AppViewModel {
     }
 
     func trustTap(_ tap: BrewTap) async {
+        guard !isTapTrustRunning else { return }
+        isTapTrustRunning = true
+        defer { isTapTrustRunning = false }
         do {
             try await brewService.trustTap(tap.name)
             await loadTaps()
@@ -750,6 +759,9 @@ final class AppViewModel {
     }
 
     func untrustTap(_ tap: BrewTap) async {
+        guard !isTapTrustRunning else { return }
+        isTapTrustRunning = true
+        defer { isTapTrustRunning = false }
         do {
             try await brewService.untrustTap(tap.name)
             await loadTaps()

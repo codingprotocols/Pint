@@ -202,8 +202,13 @@ struct PackageDetailView: View {
                     }
                 }
 
-                // Autoremove protection (brew tab, brew >= 6)
-                let isInstalledForTab = viewModel.installedPackages.contains { $0.id == package.id }
+                // Autoremove protection (brew tab, brew >= 6).
+                // Formulae only: cask install state is parsed from
+                // `brew list --cask --versions`, which carries no
+                // installed-on-request flag, so the toggle would always render
+                // "on" and silently revert after the next reload.
+                let isInstalledForTab = package.type == .formula
+                    && viewModel.installedPackages.contains { $0.id == package.id }
                 if isInstalledForTab {
                     Toggle(isOn: Binding(
                         get: { livePackage.installedOnRequest },
