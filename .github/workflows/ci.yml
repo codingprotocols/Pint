@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# One run per PR; superseded pushes are cancelled to save runner minutes.
+# main is keyed by SHA so pushes there never cancel each other.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build & Test
+    # Must be macos-26: the targets deploy to macOS 26.2, and xcodebuild
+    # refuses to *run* tests on an older host ("My Mac's macOS 15.7.7 doesn't
+    # match PintTests's macOS 26.2 deployment target"). Building is fine on
+    # older hosts, which is why release.yml still works on macos-15.
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Cache derived data
+        uses: actions/cache@v6
+        with:
+          path: build
+          key: ci-derived-data-${{ hashFiles('**/*.swift', 'Pint.xcodeproj/project.pbxproj') }}
+          restore-keys: ci-derived-data-
+
+      # Code signing is disabled on purpose. It keeps this workflow free of
+      # secrets, which is what lets it run on Dependabot and fork PRs — those
+      # do not receive repository secrets. Compilation, linking against
+      # Sparkle, and the test suite are all still fully exercised; only the
+      # signed/notarized packaging path is release-only.
+      - name: Build (Release, unsigned)
+        run: |
+          xcodebuild build \
+            -project Pint.xcodeproj \
+            -scheme Pint \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM=""
+
+      # Regression guard for a bug that shipped silently in every release up to
+      # v1.4.1: SUFeedURL/SUPublicEDKey were declared as INFOPLIST_KEY_* build
+      # settings, which Xcode drops for non-Apple keys without any warning. The
+      # app built and ran fine — it just had no update feed, so Sparkle could
+      # never deliver an update. Nothing but an explicit assertion catches this.
+      - name: Verify Sparkle keys are present in the built app
+        run: |
+          PLIST="build/Build/Products/Release/Pint.app/Contents/Info.plist"
+          FAILED=0
+          for KEY in SUFeedURL SUPublicEDKey; do
+            if VALUE=$(/usr/libexec/PlistBuddy -c "Print :$KEY" "$PLIST" 2>/dev/null) \
+               && [ -n "$VALUE" ]; then
+              echo "OK   $KEY = $VALUE"
+            else
+              echo "FAIL $KEY is missing from the built Info.plist"
+              FAILED=1
+            fi
+          done
+
+          # A feed URL with an unexpanded variable or an empty owner is just as
+          # broken as a missing one, and looks fine at a glance.
+          FEED=$(/usr/libexec/PlistBuddy -c "Print :SUFeedURL" "$PLIST" 2>/dev/null || echo "")
+          case "$FEED" in
+            *'$('*|*"//.github.io"*)
+              echo "FAIL SUFeedURL did not expand correctly: $FEED"
+              FAILED=1
+              ;;
+          esac
+
+          exit $FAILED
+
+      - name: Test
+        run: |
+          xcodebuild test \
+            -project Pint.xcodeproj \
+            -scheme Pint \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM=""
