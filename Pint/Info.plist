@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Sparkle configuration.
+
+	  These MUST live in a real Info.plist rather than INFOPLIST_KEY_* build
+	  settings. Xcode's INFOPLIST_KEY_ mechanism only maps a fixed set of
+	  Apple-defined keys into the generated Info.plist and silently drops
+	  everything else — no warning, no error. Setting them as
+	  INFOPLIST_KEY_SUFeedURL / INFOPLIST_KEY_SUPublicEDKey produced a shipping
+	  app with no Sparkle keys at all, so auto-updates never worked.
+
+	  The rest of the Info.plist is still generated (GENERATE_INFOPLIST_FILE =
+	  YES) and merged on top of this file, so version/bundle keys continue to
+	  come from build settings.
+	-->
+	<key>SUFeedURL</key>
+	<string>https://$(REPO_OWNER).github.io/Pint/resources/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>BORF/Uuc1fzb2CrIFHaYehHFUQ6DBQkJn6dAxPw3azw=</string>
+</dict>
+</plist>
