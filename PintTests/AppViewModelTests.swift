@@ -475,6 +475,36 @@ final class AppViewModelTests: XCTestCase {
         XCTAssertEqual(vm.outdatedPackages.count, 1)
     }
 
+    func testPerformBackgroundUpdateCheck_successRecordsFreshnessTimestamp() async {
+        UserDefaults.standard.removeObject(forKey: AppSettingsKeys.lastBrewUpdate)
+        defer { UserDefaults.standard.removeObject(forKey: AppSettingsKeys.lastBrewUpdate) }
+        let vm = AppViewModel(brewService: MockBrewService())
+
+        await vm.performBackgroundUpdateCheck()
+
+        XCTAssertNotNil(vm.lastBrewUpdateDate)
+        XCTAssertFalse(vm.isBrewUpdateStale)
+    }
+
+    func testPerformBackgroundUpdateCheck_failedRefreshDoesNotRecordFreshness() async {
+        UserDefaults.standard.removeObject(forKey: AppSettingsKeys.lastBrewUpdate)
+        defer { UserDefaults.standard.removeObject(forKey: AppSettingsKeys.lastBrewUpdate) }
+        let mock = MockBrewService()
+        mock.updateIfNeededError = ShellError.commandFailed(
+            command: "brew update-if-needed", exitCode: 1, stderr: "boom"
+        )
+        let vm = AppViewModel(brewService: mock)
+
+        await vm.performBackgroundUpdateCheck()
+
+        XCTAssertNil(vm.lastBrewUpdateDate,
+                     "A failed database refresh must not be recorded as a successful update, "
+                     + "otherwise isBrewUpdateStale would never fire again")
+        XCTAssertTrue(vm.isBrewUpdateStale)
+        // The outdated check still runs against the existing database.
+        XCTAssertNotNil(vm.lastOutdatedCheck)
+    }
+
     // MARK: - Helpers
 
     private func makeViewModel(

@@ -129,9 +129,23 @@ actor ShellExecutor {
     /// Environment for all brew invocations. HOMEBREW_NO_ASK opts out of
     /// brew 6's interactive ask-mode confirmation, which would otherwise
     /// block forever on a pipe.
-    static func brewEnvironment() -> [String: String] {
+    ///
+    /// - Parameter allowAutoUpdate: When `true`, `HOMEBREW_NO_AUTO_UPDATE` is
+    ///   removed from the environment. This is required for `brew
+    ///   update-if-needed`, which is implemented as a thin wrapper around
+    ///   brew's `auto-update` helper and returns immediately (exit 0, no
+    ///   output) whenever `HOMEBREW_NO_AUTO_UPDATE` is set. Every other
+    ///   command must keep the variable so brew never performs a surprise
+    ///   update in the middle of a user-initiated operation.
+    static func brewEnvironment(allowAutoUpdate: Bool = false) -> [String: String] {
         var env = ProcessInfo.processInfo.environment
-        env["HOMEBREW_NO_AUTO_UPDATE"] = "1"
+        if allowAutoUpdate {
+            // Also drop any value inherited from the user's shell, otherwise
+            // the update would silently become a no-op.
+            env.removeValue(forKey: "HOMEBREW_NO_AUTO_UPDATE")
+        } else {
+            env["HOMEBREW_NO_AUTO_UPDATE"] = "1"
+        }
         env["HOMEBREW_NO_INSTALL_CLEANUP"] = "1"
         env["HOMEBREW_NO_ASK"] = "1"
         env["PATH"] = buildBrewPATH(from: env["PATH"])
@@ -139,13 +153,13 @@ actor ShellExecutor {
     }
 
     /// Run a brew command and return the full output when complete.
-    static func run(_ arguments: [String]) async throws -> String {
+    static func run(_ arguments: [String], allowAutoUpdate: Bool = false) async throws -> String {
         let brewPath = try resolveBrewPath()
         let process = Process()
         process.executableURL = URL(fileURLWithPath: brewPath)
         process.arguments = arguments
 
-        process.environment = Self.brewEnvironment()
+        process.environment = Self.brewEnvironment(allowAutoUpdate: allowAutoUpdate)
 
         let outputPipe = Pipe()
         let errorPipe = Pipe()

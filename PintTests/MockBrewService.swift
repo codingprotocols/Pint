@@ -30,6 +30,7 @@ final class MockBrewService: BrewServiceProtocol {
     var trustTapError: Error? = nil
     var setInstalledOnRequestCalls: [(name: String, isCask: Bool, value: Bool)] = []
     var updateIfNeededCallCount = 0
+    var updateIfNeededError: Error? = nil
     var updateCalled = false
 
     // Call counters
@@ -59,6 +60,7 @@ final class MockBrewService: BrewServiceProtocol {
     }
     func updateIfNeeded() async throws {
         updateIfNeededCallCount += 1
+        if let error = updateIfNeededError { throw error }
     }
     func cleanupCache(onOutput: @escaping @Sendable (String) -> Void) async throws {}
     func getDiskUsage() async throws -> String { "" }

@@ -276,8 +276,13 @@ final class BrewService: BrewServiceProtocol {
 
     /// brew 6: runs a full update only when the local database is stale.
     /// Much cheaper than `brew update` for periodic background checks.
+    ///
+    /// `update-if-needed` delegates to brew's `auto-update` helper, which
+    /// bails out immediately when `HOMEBREW_NO_AUTO_UPDATE` is set. The
+    /// default brew environment sets that variable, so this call must
+    /// explicitly opt back in or it would silently do nothing.
     func updateIfNeeded() async throws {
-        _ = try await ShellExecutor.run(["update-if-needed"])
+        _ = try await ShellExecutor.run(["update-if-needed"], allowAutoUpdate: true)
     }
 
     // MARK: - Diagnostics
