@@ -2,6 +2,20 @@
 
 All notable changes to Pint will be documented in this file.
 
+## [1.4.2] — 2026-08-19
+
+### 🐛 Fixes
+- **Automatic updates now work.** Previous releases shipped without any Sparkle
+  configuration at all — the feed URL and public key were declared as
+  `INFOPLIST_KEY_*` build settings, which Xcode silently drops for non-Apple
+  keys, so the built app had no update feed to check. The keys now live in a
+  real `Info.plist`, and the appcast is published at a URL that resolves
+
+> **Note:** because 1.4.1 and earlier have no update feed compiled in, this one
+> release must be installed manually. Updates from 1.4.2 onward are automatic.
+
+---
+
 ## [1.4.1] — 2026-08-19
 
 ### 🐛 Fixes
