@@ -77,15 +77,20 @@ struct TapsView: View {
 
                             Spacer()
 
-                            if !tap.isOfficial {
-                                Label(tap.isTrusted ? "Trusted" : "Untrusted",
-                                      systemImage: tap.isTrusted ? "checkmark.shield" : "exclamationmark.shield")
+                            // Trust affordances only exist when brew actually
+                            // reports trust (Homebrew 6+). On older brews
+                            // `isTrusted` is nil and the commands do not
+                            // exist, so nothing is shown rather than claiming
+                            // an unknown tap is trusted.
+                            if tap.supportsTrustActions, let isTrusted = tap.isTrusted {
+                                Label(isTrusted ? "Trusted" : "Untrusted",
+                                      systemImage: isTrusted ? "checkmark.shield" : "exclamationmark.shield")
                                     .font(.caption)
-                                    .foregroundStyle(tap.isTrusted ? .green : .orange)
+                                    .foregroundStyle(isTrusted ? .green : .orange)
 
-                                Button(tap.isTrusted ? "Untrust" : "Trust") {
+                                Button(isTrusted ? "Untrust" : "Trust") {
                                     Task {
-                                        if tap.isTrusted {
+                                        if isTrusted {
                                             await viewModel.untrustTap(tap)
                                         } else {
                                             await viewModel.trustTap(tap)
@@ -94,7 +99,7 @@ struct TapsView: View {
                                 }
                                 .buttonStyle(.bordered)
                                 .controlSize(.small)
-                                .help(tap.isTrusted
+                                .help(isTrusted
                                       ? "Stop trusting this tap's formulae and casks"
                                       : "Allow Homebrew to run this tap's code")
                                 .disabled(viewModel.isOperationRunning)

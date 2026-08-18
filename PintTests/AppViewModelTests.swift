@@ -393,7 +393,7 @@ final class AppViewModelTests: XCTestCase {
         XCTAssertTrue(mock.listTapsCalled)
         XCTAssertEqual(vm.taps.count, 2)
         XCTAssertEqual(vm.taps[1].name, "localstack/tap")
-        XCTAssertFalse(vm.taps[1].isTrusted)
+        XCTAssertEqual(vm.taps[1].isTrusted, false)
     }
 
     func testTrustTap_callsServiceAndReloadsTaps() async {
@@ -407,7 +407,7 @@ final class AppViewModelTests: XCTestCase {
         await vm.trustTap(vm.taps[0])
 
         XCTAssertEqual(mock.trustTapCalledWith, ["localstack/tap"])
-        XCTAssertTrue(vm.taps[0].isTrusted)
+        XCTAssertEqual(vm.taps[0].isTrusted, true)
     }
 
     func testUntrustTap_callsServiceAndReloadsTaps() async {
@@ -420,7 +420,7 @@ final class AppViewModelTests: XCTestCase {
         await vm.untrustTap(vm.taps[0])
 
         XCTAssertEqual(mock.untrustTapCalledWith, ["mongodb/brew"])
-        XCTAssertFalse(vm.taps[0].isTrusted)
+        XCTAssertEqual(vm.taps[0].isTrusted, false)
     }
 
     func testTrustTap_errorSurfacesAlert() async {
