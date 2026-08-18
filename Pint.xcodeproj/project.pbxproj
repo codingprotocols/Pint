@@ -349,11 +349,10 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Pint/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Pint;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_SUFeedURL = "https://$(REPO_OWNER).github.io/Pint/appcast.xml";
-				INFOPLIST_KEY_SUPublicEDKey = "BORF/Uuc1fzb2CrIFHaYehHFUQ6DBQkJn6dAxPw3azw=";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -361,6 +360,7 @@
 				MARKETING_VERSION = 1.4.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.codingprotocols.Pint;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				REPO_OWNER = codingprotocols;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -388,11 +388,10 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Pint/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Pint;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_SUFeedURL = "https://$(REPO_OWNER).github.io/Pint/appcast.xml";
-				INFOPLIST_KEY_SUPublicEDKey = "BORF/Uuc1fzb2CrIFHaYehHFUQ6DBQkJn6dAxPw3azw=";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -400,6 +399,7 @@
 				MARKETING_VERSION = 1.4.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.codingprotocols.Pint;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				REPO_OWNER = codingprotocols;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
