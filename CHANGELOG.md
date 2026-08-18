@@ -2,6 +2,29 @@
 
 All notable changes to Pint will be documented in this file.
 
+## [1.4.1] — 2026-08-19
+
+### 🐛 Fixes
+- **Background update checks now actually refresh the formula database.**
+  `brew update-if-needed` exits immediately when `HOMEBREW_NO_AUTO_UPDATE` is
+  set, which Pint set for every command — so the 1.4.0 background check was a
+  no-op and the outdated list could go stale indefinitely
+- The "last updated" timestamp no longer advances when a refresh fails, which
+  previously masked the staleness permanently
+- Taps with an unknown trust state (Homebrew < 6, or a failed `tap-info` query)
+  are no longer shown as "Trusted" — trust actions are hidden instead of
+  offering a command the installed Homebrew does not support
+- The "Installed on request" toggle is now shown for formulae only; for casks it
+  displayed a value Homebrew never reports and reverted after each reload
+- Trust/Untrust buttons disable while a request is in flight
+
+### 🔒 Security
+- Sparkle updated 2.9.0 → 2.9.5, including hardening against symbolic links when
+  applying delta updates and validation of the installer connection before
+  appcast data is accepted
+
+---
+
 ## [1.4.0] — 2026-07-06
 
 ### ✨ New Features
