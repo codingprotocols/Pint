@@ -2,6 +2,21 @@
 
 All notable changes to Pint will be documented in this file.
 
+## [1.4.3] — 2026-08-19
+
+### 🐛 Fixes
+- Corrected the stated system requirement: Pint requires **macOS 26.2 (Tahoe)**,
+  not 15.0. The README, the update feed and the release notes all understated
+  it, so updates could be offered to systems that cannot run the app
+- Removed a stray copy of `Info.plist` that was being bundled into the app's
+  `Resources` folder
+
+### 🔧 Internal
+- Build and test now run on every pull request
+- Release tooling tracks the Sparkle version actually shipped (2.9.5)
+
+---
+
 ## [1.4.2] — 2026-08-19
 
 ### 🐛 Fixes
