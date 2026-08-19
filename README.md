@@ -59,7 +59,20 @@ Browse, search, install, upgrade, and uninstall formulae and casks without touch
 
 ## Installation
 
-### Download (Recommended)
+### Homebrew (Recommended)
+
+```bash
+brew install --cask codingprotocols/tap/pint-app
+```
+
+The cask is `pint-app`, not `pint` — Homebrew core already ships an unrelated
+`pint` formula (a Prometheus rule linter).
+
+Pint updates itself via Sparkle, so the cask is marked `auto_updates true` and
+`brew upgrade` deliberately leaves it alone. To let Homebrew drive upgrades
+instead: `brew upgrade --cask --greedy pint-app`.
+
+### Download
 
 1. Go to [Releases](../../releases/latest)
 2. Download `Pint-x.x.x.dmg`
