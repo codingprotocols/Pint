@@ -68,9 +68,9 @@ brew install --cask codingprotocols/tap/pint-app
 The cask is `pint-app`, not `pint` — Homebrew core already ships an unrelated
 `pint` formula (a Prometheus rule linter).
 
-Pint updates itself via Sparkle, so the cask is marked `auto_updates true` and
-`brew upgrade` deliberately leaves it alone. To let Homebrew drive upgrades
-instead: `brew upgrade --cask --greedy pint-app`.
+Pint updates itself via Sparkle, so the cask is marked `auto_updates true`.
+Homebrew may still offer the upgrade — `brew upgrade --cask pint-app` works and
+lands on the same version the in-app updater would install. Either path is fine.
 
 ### Download
 
