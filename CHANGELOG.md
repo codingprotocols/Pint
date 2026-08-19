@@ -2,6 +2,17 @@
 
 All notable changes to Pint will be documented in this file.
 
+## [1.4.4] — 2026-08-19
+
+Maintenance release. **No changes to the app itself** — identical in behaviour to
+1.4.3.
+
+### 🔧 Internal
+- Releases now open a pull request against the Homebrew tap automatically,
+  bumping the cask's version and checksum
+
+---
+
 ## [1.4.3] — 2026-08-19
 
 ### 🐛 Fixes
