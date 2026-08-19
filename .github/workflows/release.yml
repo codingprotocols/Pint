@@ -435,3 +435,96 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── Job 4: Bump the Homebrew cask ──────────────────────────────────────────
+  # Without this the cask silently keeps pointing at the previous release: the
+  # old dmg still exists and still matches its checksum, so nothing errors and
+  # new `brew install --cask` users just quietly get a stale version.
+  #
+  # Opens a PR rather than pushing to the tap's main, so the tap's own CI
+  # (audit + install + notarization checks) gates the change before users see
+  # it. Requires HOMEBREW_TAP_TOKEN: a token with contents:write and
+  # pull-requests:write on codingprotocols/homebrew-tap. GITHUB_TOKEN cannot
+  # be used — it is scoped to this repository only.
+  tap:
+    name: Bump Homebrew Cask
+    runs-on: ubuntu-latest   # no macOS needed, just a text edit
+    needs: [build, notarize, release]
+
+    steps:
+      - name: Checkout tap
+        uses: actions/checkout@v7
+        with:
+          repository: codingprotocols/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Update cask version and checksum
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          # The post-staple hash. The pre-staple one from the build job is a
+          # different file — the notarization ticket is embedded into the dmg.
+          SHA256:  ${{ needs.notarize.outputs.dmg_sha256 }}
+        run: |
+          python3 - <<'PYEOF'
+          import os, re, sys
+
+          cask    = "Casks/pint-app.rb"
+          version = os.environ["VERSION"]
+          sha256  = os.environ["SHA256"]
+
+          if not re.fullmatch(r"[0-9a-f]{64}", sha256):
+              sys.exit(f"refusing to write a malformed sha256: {sha256!r}")
+
+          src = open(cask).read()
+
+          # Anchor on the stanzas, and require exactly one match each, so a
+          # restructured cask fails loudly instead of being silently skipped.
+          src, n_v = re.subn(r'^  version "[^"]*"$',
+                             f'  version "{version}"', src, flags=re.M)
+          src, n_s = re.subn(r'^  sha256 "[0-9a-f]{64}"$',
+                             f'  sha256 "{sha256}"', src, flags=re.M)
+          if (n_v, n_s) != (1, 1):
+              sys.exit(f"expected 1 version and 1 sha256 stanza, replaced {n_v} and {n_s}")
+
+          open(cask, "w").write(src)
+          print(f"pint-app -> {version} / {sha256}")
+          PYEOF
+
+          git diff --stat
+          git diff --quiet && {
+            echo "::notice::Cask already at ${VERSION}; nothing to do."
+            echo "CHANGED=false" >> $GITHUB_ENV
+            exit 0
+          }
+          echo "CHANGED=true" >> $GITHUB_ENV
+
+      - name: Open pull request against the tap
+        if: env.CHANGED == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION:  ${{ needs.build.outputs.version }}
+          TAG:      ${{ needs.build.outputs.tag }}
+        run: |
+          BRANCH="pint-app-${VERSION}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git commit -aqm "pint-app ${VERSION}"
+          git push -f origin "$BRANCH"
+
+          # Re-runs of the same tag should update the branch, not fail on an
+          # already-open PR.
+          if [ -n "$(gh pr list --repo codingprotocols/homebrew-tap --head "$BRANCH" --json number --jq '.[].number')" ]; then
+            echo "::notice::PR for $BRANCH already open; branch updated."
+            exit 0
+          fi
+
+          gh pr create \
+            --repo codingprotocols/homebrew-tap \
+            --base main --head "$BRANCH" \
+            --title "pint-app ${VERSION}" \
+            --body "Automated bump from [Pint ${TAG}](https://github.com/codingprotocols/Pint/releases/tag/${TAG}).
+
+          \`sha256\` is the post-staple checksum computed by the release workflow — the same bytes published as the release asset.
+
+          Tap CI will audit and install the cask before this merges."
