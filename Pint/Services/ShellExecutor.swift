@@ -275,16 +275,20 @@ actor ShellExecutor {
     }
 
     /// Run a brew command with real-time streaming output via a callback.
-    /// Supports cancellation and an optional wall-clock timeout.
+    /// Supports cancellation and an optional idle timeout.
     ///
     /// - Parameters:
     ///   - arguments: Arguments passed to the brew executable.
-    ///   - timeout: Maximum seconds to wait before terminating the process.
-    ///              Defaults to 10 minutes. Pass `.infinity` to disable.
+    ///   - idleTimeout: Maximum seconds of *silence* (no stdout/stderr) before the
+    ///                  process is treated as hung and terminated. Resets on every
+    ///                  chunk of output, so a slow-but-active install/upgrade (large
+    ///                  cask download, bulk upgrade) can run indefinitely as long as
+    ///                  brew keeps producing output. Defaults to 10 minutes.
+    ///                  Pass `.infinity` to disable.
     ///   - onOutput: Called for each chunk of stdout/stderr as it arrives.
     static func runStreaming(
         _ arguments: [String],
-        timeout: TimeInterval = 600,
+        idleTimeout: TimeInterval = 600,
         onOutput: @escaping @Sendable (String) -> Void
     ) async throws {
         let brewPath = try resolveBrewPath()
@@ -301,9 +305,12 @@ actor ShellExecutor {
         process.standardOutput = outputPipe
         process.standardError = outputPipe
 
+        let lastActivity = UnsafeMutableSendableBox<Date>(Date())
+
         outputPipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
             if !data.isEmpty, let str = String(data: data, encoding: .utf8) {
+                lastActivity.value = Date()
                 onOutput(str)
             }
         }
@@ -315,7 +322,7 @@ actor ShellExecutor {
             throw ShellError.brewNotFound
         }
 
-        // Race the process against the timeout.
+        // Race the process against the idle watchdog.
         // The first child task to finish wins; the other is cancelled.
         try await withThrowingTaskGroup(of: Void.self) { group in
             // Task 1: wait for process completion, bridge Task cancellation → SIGTERM.
@@ -336,18 +343,26 @@ actor ShellExecutor {
                 }
             }
 
-            // Task 2: timeout watchdog.
-            if timeout.isFinite {
+            // Task 2: idle watchdog. Polls periodically rather than sleeping for the
+            // full timeout up front, so it can detect that output has kept arriving
+            // and let the process keep running past the nominal timeout duration.
+            if idleTimeout.isFinite {
                 group.addTask {
-                    try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                    if process.isRunning { process.terminate() }
-                    throw ShellError.timedOut(command: "brew \(arguments.joined(separator: " "))",
-                                              after: timeout)
+                    let pollInterval = min(idleTimeout, 5)
+                    while true {
+                        try await Task.sleep(nanoseconds: UInt64(pollInterval * 1_000_000_000))
+                        let idleFor = Date().timeIntervalSince(lastActivity.value)
+                        if idleFor >= idleTimeout {
+                            if process.isRunning { process.terminate() }
+                            throw ShellError.timedOut(command: "brew \(arguments.joined(separator: " "))",
+                                                      after: idleTimeout)
+                        }
+                    }
                 }
             }
 
             // Wait for the first task to finish (success or failure).
-            // On success, cancel the timeout watchdog. On failure, propagate.
+            // On success, cancel the idle watchdog. On failure, propagate.
             do {
                 try await group.next()
             } catch {
@@ -376,7 +391,7 @@ enum ShellError: LocalizedError, Equatable {
             return "Operation was cancelled."
         case .timedOut(let command, let after):
             let minutes = Int(after / 60)
-            return "'\(command)' timed out after \(minutes) minute\(minutes == 1 ? "" : "s")."
+            return "'\(command)' produced no output for \(minutes) minute\(minutes == 1 ? "" : "s") and was stopped."
         }
     }
 }

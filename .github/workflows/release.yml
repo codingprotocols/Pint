@@ -274,11 +274,11 @@ jobs:
         uses: actions/cache@v6
         with:
           path: sparkle_tools
-          key: sparkle-2.9.5
+          key: sparkle-2.10.0
 
       - name: Download Sparkle tools
         run: |
-          SPARKLE_VERSION="2.9.5"
+          SPARKLE_VERSION="2.10.0"
           if [ ! -f "sparkle_tools/bin/sign_update" ] && ! find sparkle_tools -name sign_update -quit 2>/dev/null | grep -q .; then
             curl -L --fail \
               "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz" \
