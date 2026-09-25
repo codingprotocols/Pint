@@ -2,6 +2,29 @@
 
 All notable changes to Pint will be documented in this file.
 
+## [1.5.0] — 2026-09-25
+
+### 🐛 Fixes
+- Long-running brew operations (a big cask download, bulk "Upgrade All") no
+  longer get killed at a flat 10-minute mark. The timeout now resets on every
+  chunk of output and only fires if brew actually goes silent, so a slow but
+  active install can run as long as it needs
+- The sidebar status no longer flips to a bare "Running…" during an
+  operation — it keeps showing the Homebrew version, matching the detailed
+  progress already shown in the bottom banner
+
+### 🔒 Security
+- Sparkle updated 2.9.5 → 2.10.0, picking up a fix for macOS 27 delta
+  updates and two security fixes (a symlink vulnerability and a
+  privilege-escalation issue for root-owned processes)
+
+### 🎨 Design
+- Refreshed corner radii across the app onto a shared token scale
+  (`DesignTokens.CornerRadius`), tightened to match macOS 27's corner
+  language
+
+---
+
 ## [1.4.4] — 2026-08-19
 
 Maintenance release. **No changes to the app itself** — identical in behaviour to

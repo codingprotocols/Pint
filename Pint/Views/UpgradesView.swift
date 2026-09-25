@@ -165,7 +165,7 @@ struct UpgradePackageRow: View {
             // Main row
             HStack(spacing: 12) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md)
                         .fill(
                             LinearGradient(
                                 colors: isPinned
@@ -317,15 +317,15 @@ struct UpgradePackageRow: View {
                 }
                 .padding(12)
                 .background(Color(.controlBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(.separatorColor), lineWidth: 0.5))
+                .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md))
+                .overlay(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md).stroke(Color(.separatorColor), lineWidth: 0.5))
                 .padding(.bottom, 4)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .padding(.horizontal, 4)
         .background(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md)
                 .fill(isHovered ? AnyShapeStyle(.quaternary.opacity(0.5)) : AnyShapeStyle(.clear))
         )
         .animation(.easeInOut(duration: 0.15), value: isHovered)

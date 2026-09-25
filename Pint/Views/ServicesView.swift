@@ -106,7 +106,7 @@ struct ServiceRow: View {
         HStack(spacing: 16) {
             // Status Icon
             ZStack {
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm)
                     .fill(service.status.color.opacity(0.2))
                     .frame(width: 40, height: 40)
 
