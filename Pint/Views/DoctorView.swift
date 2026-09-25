@@ -58,7 +58,7 @@ struct DoctorView: View {
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color(.controlColor).opacity(0.5))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md))
 
                 VStack(alignment: .leading, spacing: 8) {
                     Label("Cache Cleanup", systemImage: "trash")
@@ -76,7 +76,7 @@ struct DoctorView: View {
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color(.controlColor).opacity(0.5))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md))
             }
             .padding(.horizontal, 24)
             .padding(.top, 24)
@@ -246,9 +246,9 @@ struct DoctorSection: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md))
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md)
                 .strokeBorder(
                     LinearGradient(
                         colors: [section.color.opacity(0.3), section.color.opacity(0.1)],

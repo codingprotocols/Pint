@@ -89,8 +89,8 @@ struct SearchView: View {
                 }
                 .padding(14)
                 .background(Color(.textBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(.separatorColor), lineWidth: 0.5))
+                .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.lg))
+                .overlay(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.lg).stroke(Color(.separatorColor), lineWidth: 0.5))
             }
             .padding(24)
 
@@ -276,7 +276,7 @@ struct PopularSuggestionsView: View {
                                 }
                             }
                             .background(
-                                RoundedRectangle(cornerRadius: 12)
+                                RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md)
                                     .fill(.background.secondary)
                             )
                         }
@@ -324,7 +324,7 @@ struct SearchResultRow: View {
             }
 
             ZStack {
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md)
                     .fill(
                         LinearGradient(
                             colors: package.type == .formula
@@ -397,7 +397,7 @@ struct SearchResultRow: View {
         .padding(.vertical, 4)
         .padding(.horizontal, 6)
         .background(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md)
                 .fill(isHovered ? AnyShapeStyle(.quaternary.opacity(0.5)) : AnyShapeStyle(.clear))
         )
         .animation(.easeInOut(duration: 0.15), value: isHovered)

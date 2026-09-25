@@ -230,7 +230,7 @@ private struct InstallInstructionsCard: View {
         .padding(20)
         .frame(maxWidth: 580, alignment: .leading)
         .background(.background)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md))
         .shadow(color: .black.opacity(0.07), radius: 8, y: 2)
     }
 }
@@ -268,7 +268,7 @@ private struct PathInstructionsCard: View {
             }
             .padding(12)
             .background(.green.opacity(0.07))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
 
             Text("Pint looks for brew at `/opt/homebrew/bin/brew` (Apple Silicon) or `/usr/local/bin/brew` (Intel). Your brew is at a different location. You need to add it to your shell profile so all tools — including Pint — can find it.")
                 .font(.callout)
@@ -294,7 +294,7 @@ private struct PathInstructionsCard: View {
         .padding(20)
         .frame(maxWidth: 580, alignment: .leading)
         .background(.background)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md))
         .shadow(color: .black.opacity(0.07), radius: 8, y: 2)
     }
 }
@@ -345,7 +345,7 @@ private struct CopyableCommandBlock: View {
             .help(copied ? "Copied!" : "Copy to clipboard")
         }
         .background(.quinary)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm).stroke(.quaternary, lineWidth: 1))
     }
 }

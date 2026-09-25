@@ -37,7 +37,7 @@ struct BackupView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack(spacing: 8) {
                         ZStack {
-                            RoundedRectangle(cornerRadius: 8)
+                            RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm)
                                 .fill(
                                     LinearGradient(colors: [.blue, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing)
                                 )
@@ -103,14 +103,14 @@ struct BackupView: View {
                     }
                 }
                 .padding(20)
-                .cardStyle(cornerRadius: 16)
+                .cardStyle(cornerRadius: DesignTokens.CornerRadius.lg)
                 .padding(.horizontal, 24)
 
                 // Import Section
                 VStack(alignment: .leading, spacing: 16) {
                     HStack(spacing: 8) {
                         ZStack {
-                            RoundedRectangle(cornerRadius: 8)
+                            RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm)
                                 .fill(
                                     LinearGradient(colors: [.green, .mint], startPoint: .topLeading, endPoint: .bottomTrailing)
                                 )
@@ -154,7 +154,7 @@ struct BackupView: View {
                     }
                 }
                 .padding(20)
-                .cardStyle(cornerRadius: 16)
+                .cardStyle(cornerRadius: DesignTokens.CornerRadius.lg)
                 .padding(.horizontal, 24)
 
                 Spacer(minLength: 20)

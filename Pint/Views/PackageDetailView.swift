@@ -30,7 +30,7 @@ struct PackageDetailView: View {
                 // Hero header
                 HStack(spacing: 18) {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 20)
+                        RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.xl)
                             .fill(
                                 LinearGradient(
                                     colors: package.type == .formula
@@ -248,7 +248,7 @@ struct PackageDetailView: View {
                     }
                     .padding(16)
                     .background(
-                        RoundedRectangle(cornerRadius: 14)
+                        RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.lg)
                             .fill(Color(.controlBackgroundColor))
                     )
                 } else if let release = releaseNote {
@@ -271,9 +271,9 @@ struct PackageDetailView: View {
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md)
                             .fill(.orange.opacity(0.06))
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(.orange.opacity(0.2), lineWidth: 1))
+                            .overlay(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md).stroke(.orange.opacity(0.2), lineWidth: 1))
                     )
                 }
 
@@ -295,9 +295,9 @@ struct PackageDetailView: View {
                     .padding(8)
                     .frame(minHeight: 100)
                     .background(Color.secondary.opacity(0.05))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md)
                             .stroke(Color.secondary.opacity(0.1), lineWidth: 1)
                     )
                 }
@@ -342,7 +342,7 @@ struct PackageDetailView: View {
                             .padding()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Color.secondary.opacity(0.05))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
                     }
                 }
             }
@@ -394,11 +394,11 @@ struct InfoCard: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md)
                 .fill(Color(.controlBackgroundColor))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md)
                 .strokeBorder(color.opacity(0.15), lineWidth: 1)
         )
     }
@@ -473,11 +473,11 @@ struct ReleaseNoteSection: View {
         }
         .padding(18)
         .background(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.lg)
                 .fill(Color(.controlBackgroundColor))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.lg)
                 .strokeBorder(
                     LinearGradient(colors: [.blue.opacity(0.2), .cyan.opacity(0.1)], startPoint: .topLeading, endPoint: .bottomTrailing),
                     lineWidth: 1

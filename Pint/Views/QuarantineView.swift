@@ -33,13 +33,13 @@ struct QuarantineView: View {
                 VStack(spacing: 40) {
                     // Drop Area
                     ZStack {
-                        RoundedRectangle(cornerRadius: 16)
+                        RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.lg)
                             .strokeBorder(
                                 isTargeted ? Color.blue : Color.secondary.opacity(0.3),
                                 style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [8])
                             )
                             .background(
-                                RoundedRectangle(cornerRadius: 16)
+                                RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.lg)
                                     .fill(isTargeted ? Color.blue.opacity(0.1) : Color.clear)
                             )
                             .frame(height: 250)
@@ -80,7 +80,7 @@ struct QuarantineView: View {
                         }
                         .padding()
                         .background(Color.secondary.opacity(0.1))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
 
@@ -96,12 +96,12 @@ struct QuarantineView: View {
                             .font(.system(.caption, design: .monospaced))
                             .padding(10)
                             .background(.quinary)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.xs))
                     }
                     .padding(24)
                     .frame(maxWidth: 500, alignment: .leading)
                     .background(Color.secondary.opacity(0.05))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md))
                 }
                 .padding(24)
                 .frame(maxWidth: .infinity)

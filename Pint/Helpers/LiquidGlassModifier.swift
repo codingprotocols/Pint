@@ -7,6 +7,22 @@ import SwiftUI
 enum DesignTokens {
     static let iconBgOpacityLight: Double = 0.10
     static let iconBgOpacityDark:  Double = 0.20
+
+    /// Shared corner-radius scale, replacing the magic numbers that used to be
+    /// scattered per view. Tightened for macOS 27 ("Golden Gate"), which favors
+    /// noticeably smaller window/panel corner radii than Tahoe did.
+    enum CornerRadius {
+        /// Small chips, tags, inline icon badges.
+        static let xs: CGFloat = 6
+        /// Buttons, list-row thumbnails, compact controls.
+        static let sm: CGFloat = 8
+        /// Standard cards and panels — the default for `cardStyle()`.
+        static let md: CGFloat = 10
+        /// Larger content cards and grouped sections.
+        static let lg: CGFloat = 14
+        /// Hero panels and full detail cards.
+        static let xl: CGFloat = 18
+    }
 }
 
 extension ColorScheme {
@@ -19,7 +35,7 @@ extension ColorScheme {
 
 /// Clean card surface that adapts to system light/dark theme.
 struct CardModifier: ViewModifier {
-    var cornerRadius: CGFloat = 12
+    var cornerRadius: CGFloat = DesignTokens.CornerRadius.md
     var shadowRadius: CGFloat = 2
 
     func body(content: Content) -> some View {

@@ -138,8 +138,8 @@ struct InstalledView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
             .background(Color(.textBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(.separatorColor), lineWidth: 0.5))
+            .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm))
+            .overlay(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm).stroke(Color(.separatorColor), lineWidth: 0.5))
             .padding(.horizontal, 24)
             .padding(.bottom, 12)
 
@@ -251,7 +251,7 @@ struct InstalledPackageRow: View {
         HStack(spacing: 10) {
             // Type icon
             ZStack {
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm)
                     .fill(iconColor.opacity(colorScheme.iconBgOpacity))
                     .frame(width: 32, height: 32)
                 Image(systemName: package.type == .formula ? "terminal.fill" : "macwindow")
@@ -322,7 +322,7 @@ struct InstalledPackageRow: View {
         .padding(.vertical, 4)
         .padding(.horizontal, 4)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm)
                 .fill(rowBackground)
         )
         .animation(.easeOut(duration: 0.1), value: isHovered)

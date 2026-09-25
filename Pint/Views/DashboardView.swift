@@ -99,9 +99,9 @@ struct DashboardView: View {
                     }
                     .padding(14)
                     .background(
-                        RoundedRectangle(cornerRadius: 10)
+                        RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md)
                             .fill(Color.yellow.opacity(0.06))
-                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.yellow.opacity(0.2), lineWidth: 0.5))
+                            .overlay(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md).stroke(Color.yellow.opacity(0.2), lineWidth: 0.5))
                     )
                     .padding(.horizontal, 24)
                 }
@@ -189,7 +189,7 @@ struct StatCard: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .top) {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 8)
+                        RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm)
                             .fill(color.opacity(colorScheme.iconBgOpacity))
                             .frame(width: 36, height: 36)
                         Image(systemName: icon)
