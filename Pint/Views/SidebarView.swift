@@ -49,18 +49,6 @@ struct SidebarView: View {
                     .padding(.vertical, 2)
                     .tag(item)
                 }
-            } header: {
-                HStack(spacing: 5) {
-                    Image(systemName: "mug.fill")
-                        .foregroundStyle(.orange)
-                        .font(.caption)
-                    Text("Pint")
-                        .font(.caption.weight(.semibold))
-                        .textCase(.uppercase)
-                        .tracking(1.0)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.bottom, 2)
             }
         }
         .listStyle(.sidebar)

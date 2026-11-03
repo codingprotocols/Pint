@@ -245,6 +245,13 @@ final class AppViewModel {
     var diskUsage: String = ""
     var taps: [BrewTap] = []
 
+    // Reclaim-space preview (populated by `loadReclaimPreview`, deletes nothing).
+    /// Approximate space `brew cleanup` would free, e.g. "1.2GB". Empty until scanned.
+    var reclaimableCacheSpace: String = ""
+    /// Formulae `brew autoremove` would remove (installed as deps, now unneeded).
+    var orphanedDependencies: [String] = []
+    var isLoadingReclaimPreview: Bool = false
+
     var brewAvailable: Bool = false
     var isCheckingBrew: Bool = true
     var brewNotFoundReason: BrewNotFoundReason = .notInstalled
@@ -585,7 +592,21 @@ final class AppViewModel {
             try await brewService.cleanupCache(onOutput: onOutput)
         } onComplete: { [self] in
             await loadDiskUsage()
+            await loadReclaimPreview()
         }
+    }
+
+    /// Scans (dry-run, non-destructive) how much space a cleanup would free and
+    /// which dependencies have become orphaned, so the Reclaim panel can show
+    /// real numbers before the user commits to anything.
+    func loadReclaimPreview() async {
+        isLoadingReclaimPreview = true
+        defer { isLoadingReclaimPreview = false }
+        async let cachePreview = (try? await brewService.cleanupPreview()) ?? ""
+        async let orphans = (try? await brewService.autoremovePreview()) ?? []
+        let preview = await cachePreview
+        reclaimableCacheSpace = BrewService.parseCleanupFreeSpace(from: preview) ?? ""
+        orphanedDependencies = await orphans
     }
 
     // MARK: - Package Operations
@@ -602,9 +623,18 @@ final class AppViewModel {
         }
     }
 
-    func uninstall(_ package: BrewPackage) {
-        runBrewOperation(command: "uninstall", package: package) { [self] onOutput in
-            try await brewService.uninstall(package.name, isCask: package.type == .cask, onOutput: onOutput)
+    /// Uninstall a package. When `zap` is true (casks only), also removes the
+    /// app's leftover files — preferences, caches, application-support data —
+    /// via `brew uninstall --zap`. Ignored for formulae, which have no such
+    /// user data to zap.
+    func uninstall(_ package: BrewPackage, zap: Bool = false) {
+        let useZap = zap && package.type == .cask
+        runBrewOperation(command: useZap ? "uninstall --zap" : "uninstall", package: package) { [self] onOutput in
+            if useZap {
+                try await brewService.zapUninstall(package.name, onOutput: onOutput)
+            } else {
+                try await brewService.uninstall(package.name, isCask: package.type == .cask, onOutput: onOutput)
+            }
         }
     }
 
@@ -669,6 +699,7 @@ final class AppViewModel {
             try await brewService.autoremove(onOutput: onOutput)
         } onComplete: { [self] in
             await loadInstalled()
+            await loadReclaimPreview()
         }
     }
 
