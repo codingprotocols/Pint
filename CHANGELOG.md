@@ -2,6 +2,27 @@
 
 All notable changes to Pint will be documented in this file.
 
+## [1.6.0] — 2026-11-04
+
+### ✨ Features
+- New **Reclaim space** panel in Brew Doctor. It surfaces the safe-to-remove
+  categories side by side — the download cache and unused dependencies — each
+  with how much it holds and a plain-language reason it's safe to clear, so you
+  can free disk space without guessing what Homebrew is about to delete
+- **Clean uninstall for apps.** Uninstalling a cask now offers to remove its
+  leftover files too (`--zap`) — preferences, caches, and application-support
+  data — alongside the plain uninstall, with a clear warning before it runs
+
+### 🐛 Fixes
+- Opening Brew Doctor no longer makes the sidebar auto-scroll and stick; the
+  reclaim cards now reserve a consistent height instead of churning the layout
+
+### 🎨 Design
+- Removed the mug icon and "PINT" wordmark from the top of the sidebar for a
+  cleaner navigation column
+
+---
+
 ## [1.5.0] — 2026-09-25
 
 ### 🐛 Fixes
