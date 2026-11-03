@@ -93,6 +93,17 @@ final class MockBrewService: BrewServiceProtocol {
         setInstalledOnRequestCalls.append((name, isCask, value))
     }
     func autoremove(onOutput: @escaping @Sendable (String) -> Void) async throws {}
+
+    var stubbedCleanupPreview: String = ""
+    func cleanupPreview() async throws -> String { stubbedCleanupPreview }
+
+    var stubbedAutoremovePreview: [String] = []
+    func autoremovePreview() async throws -> [String] { stubbedAutoremovePreview }
+
+    var zapUninstallCalledWith: [String] = []
+    func zapUninstall(_ name: String, onOutput: @escaping @Sendable (String) -> Void) async throws {
+        zapUninstallCalledWith.append(name)
+    }
     func installMultiple(_ names: [String], isCask: Bool, onOutput: @escaping @Sendable (String) -> Void) async throws {
         installMultipleCalledNames.append(names)
         installMultipleCalledIsCask.append(isCask)

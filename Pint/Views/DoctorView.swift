@@ -41,45 +41,12 @@ struct DoctorView: View {
 
             Divider()
 
-            // New Diagnostics Cards
-            HStack(spacing: 20) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Disk Usage", systemImage: "info.circle")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-                    HStack(alignment: .lastTextBaseline, spacing: 4) {
-                        Text(viewModel.diskUsage.isEmpty ? "Calculating..." : viewModel.diskUsage.split(separator: "\t").first ?? "--")
-                            .font(.system(.title, design: .rounded, weight: .bold))
-                        Text("in cache")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(.controlColor).opacity(0.5))
-                .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md))
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Cache Cleanup", systemImage: "trash")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-                    Button {
-                        viewModel.cleanupCache()
-                    } label: {
-                        Text("Clean Cache")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(.controlColor).opacity(0.5))
-                .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md))
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 24)
+            // Reclaim space — surfaces the safe-to-remove categories (cache,
+            // unused dependencies) with a one-line reason each, before any
+            // destructive action is taken.
+            ReclaimSpacePanel()
+                .padding(.horizontal, 24)
+                .padding(.top, 24)
 
             if viewModel.isLoadingDoctor {
                 Spacer()
@@ -141,6 +108,7 @@ struct DoctorView: View {
             if viewModel.diskUsage.isEmpty {
                 Task { await viewModel.loadDiskUsage() }
             }
+            Task { await viewModel.loadReclaimPreview() }
         }
     }
 
@@ -177,6 +145,131 @@ struct DoctorView: View {
         }
 
         return sections
+    }
+}
+
+// MARK: - Reclaim Space
+
+/// Shedi-inspired panel: shows the safe-to-remove categories side by side,
+/// each with how much it holds and a one-line reason it's safe to clear, so a
+/// user can reclaim disk space without guessing what brew is about to delete.
+struct ReclaimSpacePanel: View {
+    @Environment(AppViewModel.self) private var viewModel
+
+    private var cacheAmount: String {
+        if !viewModel.reclaimableCacheSpace.isEmpty { return viewModel.reclaimableCacheSpace }
+        if !viewModel.diskUsage.isEmpty, viewModel.diskUsage.first != "E" {
+            return String(viewModel.diskUsage.split(separator: "\t").first ?? "—")
+        }
+        return "—"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Label("Reclaim space", systemImage: "sparkles")
+                    .font(.headline)
+                Spacer()
+                if viewModel.isLoadingReclaimPreview {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Button {
+                        Task { await viewModel.loadReclaimPreview() }
+                    } label: {
+                        Label("Rescan", systemImage: "arrow.clockwise")
+                            .labelStyle(.titleAndIcon)
+                            .font(.caption)
+                    }
+                    .buttonStyle(.borderless)
+                }
+            }
+
+            HStack(spacing: 16) {
+                ReclaimCategoryCard(
+                    icon: "archivebox",
+                    tint: .blue,
+                    title: "Download cache",
+                    amount: cacheAmount,
+                    reason: "Old downloads and package versions — brew re-fetches them whenever it needs them again.",
+                    actionTitle: "Clean cache",
+                    isEnabled: !viewModel.isOperationRunning
+                ) {
+                    viewModel.cleanupCache()
+                }
+
+                ReclaimCategoryCard(
+                    icon: "shippingbox",
+                    tint: .orange,
+                    title: "Unused dependencies",
+                    amount: viewModel.orphanedDependencies.isEmpty ? "None" : "\(viewModel.orphanedDependencies.count)",
+                    reason: viewModel.orphanedDependencies.isEmpty
+                        ? "Nothing to remove — every installed dependency is still needed by something."
+                        : "Installed only as dependencies and no longer required: \(viewModel.orphanedDependencies.prefix(6).joined(separator: ", "))\(viewModel.orphanedDependencies.count > 6 ? "…" : "").",
+                    actionTitle: viewModel.orphanedDependencies.isEmpty ? "Nothing to remove" : "Remove \(viewModel.orphanedDependencies.count)",
+                    isEnabled: !viewModel.isOperationRunning && !viewModel.orphanedDependencies.isEmpty
+                ) {
+                    viewModel.autoRemove()
+                }
+            }
+        }
+    }
+}
+
+/// One reclaimable category: amount, a plain-language reason it's safe, and the
+/// action that clears it.
+private struct ReclaimCategoryCard: View {
+    let icon: String
+    let tint: Color
+    let title: String
+    let amount: String
+    let reason: String
+    let actionTitle: String
+    let isEnabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.sm)
+                        .fill(tint.opacity(0.15))
+                        .frame(width: 34, height: 34)
+                    Image(systemName: icon)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(tint)
+                }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                    Text(amount)
+                        .font(.system(.title3, design: .rounded, weight: .bold))
+                }
+                Spacer()
+            }
+
+            Text(reason)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                // Reserve a fixed two-line height so both cards resolve to the
+                // same height. `.fixedSize` here made the two unequal-length
+                // reasons produce ambiguous heights in the equal-width HStack,
+                // whose repeated layout passes made the split view re-scroll the
+                // sidebar to the selected row.
+                .lineLimit(2, reservesSpace: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button(action: action) {
+                Text(actionTitle)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .disabled(!isEnabled)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.controlColor).opacity(0.5))
+        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.CornerRadius.md))
     }
 }
 

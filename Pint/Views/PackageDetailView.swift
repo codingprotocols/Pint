@@ -23,6 +23,7 @@ struct PackageDetailView: View {
     @State private var showDependencyTree = false
     @State private var dependencyTree = ""
     @State private var isLoadingTree = false
+    @State private var showUninstallOptions = false
 
     var body: some View {
         ScrollView {
@@ -140,7 +141,13 @@ struct PackageDetailView: View {
                         }
 
                         Button(role: .destructive) {
-                            viewModel.uninstall(package)
+                            // Casks (apps) leave behind preferences and caches,
+                            // so offer a clean uninstall that also removes them.
+                            if package.type == .cask {
+                                showUninstallOptions = true
+                            } else {
+                                viewModel.uninstall(package)
+                            }
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: "trash")
@@ -150,6 +157,21 @@ struct PackageDetailView: View {
                         }
                         .buttonStyle(.bordered)
                         .disabled(viewModel.isOperationRunning)
+                        .confirmationDialog(
+                            "Uninstall \(package.name)?",
+                            isPresented: $showUninstallOptions,
+                            titleVisibility: .visible
+                        ) {
+                            Button("Uninstall app only") {
+                                viewModel.uninstall(package)
+                            }
+                            Button("Uninstall & remove leftover files", role: .destructive) {
+                                viewModel.uninstall(package, zap: true)
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text("“Remove leftover files” also deletes this app's preferences, caches, and application-support data (brew --zap). This can't be undone.")
+                        }
 
                         // Dependency Tree Button
                         if package.type == .formula {

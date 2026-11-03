@@ -40,6 +40,16 @@ protocol BrewServiceProtocol: AnyObject {
     func unpin(_ name: String) async throws
     func setInstalledOnRequest(_ name: String, isCask: Bool, value: Bool) async throws
     func autoremove(onOutput: @escaping @Sendable (String) -> Void) async throws
+    /// Dry-run of `brew cleanup`: brew's human-readable summary of what it
+    /// would remove, including the "would free approximately X" line. Deletes
+    /// nothing — safe to call to populate a preview.
+    func cleanupPreview() async throws -> String
+    /// Dry-run of `brew autoremove`: the names of formulae installed only as
+    /// dependencies that nothing needs any more. Deletes nothing.
+    func autoremovePreview() async throws -> [String]
+    /// Uninstall a cask *and* its leftover files (`--zap`): preferences,
+    /// caches, and application-support data the app created. Destructive.
+    func zapUninstall(_ name: String, onOutput: @escaping @Sendable (String) -> Void) async throws
     func installMultiple(_ names: [String], isCask: Bool, onOutput: @escaping @Sendable (String) -> Void) async throws
     func prefetchSearchLists() async
     /// Evicts the formula and cask search-list cache so the next search reflects
@@ -316,6 +326,21 @@ final class BrewService: BrewServiceProtocol {
         try await ShellExecutor.runStreaming(["cleanup", "--prune=all"], onOutput: onOutput)
     }
 
+    func cleanupPreview() async throws -> String {
+        try await ShellExecutor.run(["cleanup", "--prune=all", "-n"])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Parses the approximate disk space from a `brew cleanup -n` summary.
+    /// brew prints a line like: "==> This operation would free approximately
+    /// 1.2GB of disk space." Returns just the size token ("1.2GB"), or nil.
+    static func parseCleanupFreeSpace(from preview: String) -> String? {
+        guard let range = preview.range(of: "free approximately ") else { return nil }
+        let tail = preview[range.upperBound...]
+        let token = tail.prefix { $0 != " " }
+        return token.isEmpty ? nil : String(token)
+    }
+
     func getDependencyTree(_ name: String) async throws -> String {
         return try await ShellExecutor.run(["deps", "--tree", name])
     }
@@ -449,6 +474,30 @@ final class BrewService: BrewServiceProtocol {
 
     func autoremove(onOutput: @escaping @Sendable (String) -> Void) async throws {
         try await ShellExecutor.runStreaming(["autoremove"], onOutput: onOutput)
+    }
+
+    func autoremovePreview() async throws -> [String] {
+        let output = try await ShellExecutor.run(["autoremove", "-n"])
+        return Self.parseAutoremoveNames(from: output)
+    }
+
+    /// Extracts formula names from a `brew autoremove -n` dry run. brew prints
+    /// a header line ("==> Would remove …") followed by the package names, so
+    /// everything that isn't a status/marker line is treated as a name.
+    static func parseAutoremoveNames(from output: String) -> [String] {
+        var names: [String] = []
+        for rawLine in output.split(whereSeparator: \.isNewline) {
+            let line = rawLine.trimmingCharacters(in: .whitespaces)
+            if line.isEmpty || line.hasPrefix("==>") || line.hasPrefix("Warning") { continue }
+            for token in line.split(whereSeparator: { $0 == " " || $0 == "\t" }) {
+                names.append(String(token))
+            }
+        }
+        return names
+    }
+
+    func zapUninstall(_ name: String, onOutput: @escaping @Sendable (String) -> Void) async throws {
+        try await ShellExecutor.runStreaming(["uninstall", "--cask", "--zap", name], onOutput: onOutput)
     }
 
     // MARK: - Release Notes
